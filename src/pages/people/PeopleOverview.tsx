@@ -17,7 +17,7 @@ const areas = [
     value: '124',
     label: 'active employees',
     icon: Users,
-    path: '/people/employees',
+    path: '/employees?view=directory',
   },
   {
     title: 'New Hires',
@@ -25,7 +25,7 @@ const areas = [
     value: '5',
     label: 'in progress',
     icon: UserPlus,
-    path: '/people/new-hires',
+    path: '/employees?view=new-hires',
   },
   {
     title: 'Employee Changes',
@@ -33,7 +33,7 @@ const areas = [
     value: '4',
     label: 'awaiting action',
     icon: RefreshCw,
-    path: '/people/changes',
+    path: '/employees?view=changes',
   },
   {
     title: 'Offboarding',
@@ -41,7 +41,7 @@ const areas = [
     value: '2',
     label: 'active departures',
     icon: LogOut,
-    path: '/people/offboarding',
+    path: '/employees?view=offboarding',
   },
   {
     title: 'Former Employees',
@@ -49,7 +49,7 @@ const areas = [
     value: '18',
     label: 'former employees',
     icon: BriefcaseBusiness,
-    path: '/people/former',
+    path: '/employees?view=former',
   },
 ];
 
