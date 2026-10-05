@@ -1,0 +1,191 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 18.4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 18.4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 18.4%;
+
+    --primary: 20 84% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 192 71% 51%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+
+    --accent: 192 71% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 20 84% 53%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 18.4%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 20 84% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 71% 51%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 25.1%;
+    --sidebar-ring: 20 84% 53%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 20 84% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 192 71% 51%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 192 71% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 20 84% 53%;
+    
+    --sidebar-background: 0 0% 18.4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 20 84% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 71% 51%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 25.1%;
+    --sidebar-ring: 20 84% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
+  }
+  
+  .stats-card {
+    @apply p-4 rounded-lg border bg-white shadow-sm hover:shadow-md transition-all;
+  }
+  
+  .data-table {
+    @apply w-full text-sm text-left;
+  }
+  
+  .data-table th {
+    @apply px-4 py-3 bg-muted font-medium text-brand-gray;
+  }
+  
+  .data-table td {
+    @apply px-4 py-3 border-t text-brand-gray;
+  }
+  
+  .data-table tr:hover {
+    @apply bg-primary-50;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-600 transition-all shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-white px-4 py-2 rounded-md hover:bg-secondary-600 transition-all shadow-sm;
+  }
+
+  .btn-outline {
+    @apply border border-primary text-primary px-4 py-2 rounded-md hover:bg-primary-50 transition-all;
+  }
+
+  .input-field {
+    @apply px-3 py-2 rounded-md border focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary;
+  }
+
+  .card-gradient-primary {
+    @apply bg-gradient-to-br from-primary-50 to-primary-100;
+  }
+
+  .card-gradient-secondary {
+    @apply bg-gradient-to-br from-secondary-50 to-secondary-100;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border rounded-xl shadow-sm;
+  }
+
+  .brand-text-primary {
+    @apply text-brand-gray;
+  }
+
+  .brand-bg-primary {
+    @apply bg-primary;
+  }
+
+  .brand-bg-secondary {
+    @apply bg-secondary;
+  }
+
+  .brand-bg-dark {
+    @apply bg-brand-gray;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
