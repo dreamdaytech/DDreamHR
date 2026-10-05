@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Calendar, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Calendar, FileText, CheckCircle, XCircle, RefreshCw, UserPlus } from 'lucide-react';
 
 type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -18,6 +19,7 @@ type ApprovalItem = {
   icon: React.ElementType;
   description: string;
   submittedAt: string;
+  route?: string;
 };
 
 const initialApprovals: ApprovalItem[] = [
@@ -26,31 +28,57 @@ const initialApprovals: ApprovalItem[] = [
     type: 'Leave Request',
     employee: 'Jane Smith',
     employeeAvatar: 'JS',
-    date: '2024-12-28',
-    duration: '3 days',
+    date: '2026-10-14',
+    duration: '5 days',
     status: 'pending',
     icon: Calendar,
-    description: 'Annual Leave - Family vacation',
+    description: 'Annual Leave · Family vacation',
     submittedAt: '2 hours ago'
   },
   {
     id: 2,
-    type: 'Overtime Request',
+    type: 'Timesheet Review',
     employee: 'John Doe',
     employeeAvatar: 'JD',
-    date: '2024-12-27',
-    duration: '4 hours',
+    date: '2026-10-05',
+    duration: '1 week',
     status: 'pending',
     icon: Clock,
-    description: 'Project deadline completion',
+    description: 'Weekly timesheet · 2 entries flagged',
     submittedAt: '5 hours ago'
   },
   {
     id: 3,
+    type: 'Employee Change',
+    employee: 'Aminata Kamara',
+    employeeAvatar: 'AK',
+    date: '2026-11-01',
+    duration: 'Promotion',
+    status: 'pending',
+    icon: RefreshCw,
+    description: 'Finance Analyst → Senior Finance Analyst',
+    submittedAt: '6 hours ago',
+    route: '/employees?view=changes'
+  },
+  {
+    id: 4,
+    type: 'Onboarding Task',
+    employee: 'Joseph Conteh',
+    employeeAvatar: 'JC',
+    date: '2026-10-12',
+    duration: 'Due today',
+    status: 'pending',
+    icon: UserPlus,
+    description: 'Manager welcome meeting requires completion',
+    submittedAt: '1 day ago',
+    route: '/employees?view=new-hires'
+  },
+  {
+    id: 5,
     type: 'Document Review',
     employee: 'Mike Johnson',
     employeeAvatar: 'MJ',
-    date: '2024-12-26',
+    date: '2026-10-04',
     duration: 'Contract',
     status: 'pending',
     icon: FileText,
@@ -58,11 +86,11 @@ const initialApprovals: ApprovalItem[] = [
     submittedAt: '1 day ago'
   },
   {
-    id: 4,
+    id: 6,
     type: 'Leave Request',
-    employee: 'Aminata Kamara',
-    employeeAvatar: 'AK',
-    date: '2024-12-20',
+    employee: 'Mariama Sesay',
+    employeeAvatar: 'MS',
+    date: '2026-09-28',
     duration: '2 days',
     status: 'approved',
     icon: Calendar,
@@ -70,11 +98,11 @@ const initialApprovals: ApprovalItem[] = [
     submittedAt: '5 days ago'
   },
   {
-    id: 5,
+    id: 7,
     type: 'Timesheet Review',
     employee: 'Mohamed Sesay',
     employeeAvatar: 'MS',
-    date: '2024-12-18',
+    date: '2026-09-25',
     duration: '1 week',
     status: 'rejected',
     icon: Clock,
@@ -84,14 +112,15 @@ const initialApprovals: ApprovalItem[] = [
 ];
 
 const statusStyles: Record<ApprovalStatus, string> = {
-  pending: 'bg-orange-100 text-orange-700 border-orange-200',
-  approved: 'bg-green-100 text-green-700 border-green-200',
-  rejected: 'bg-red-100 text-red-700 border-red-200'
+  pending: 'border-primary/30 bg-primary/10 text-primary',
+  approved: 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400',
+  rejected: 'border-destructive/30 bg-destructive/10 text-destructive'
 };
 
 const Approvals = () => {
   const [activeFilter, setActiveFilter] = useState<ApprovalStatus>('pending');
   const [approvals, setApprovals] = useState<ApprovalItem[]>(initialApprovals);
+  const navigate = useNavigate();
 
   const filteredApprovals = useMemo(
     () => approvals.filter((approval) => approval.status === activeFilter),
@@ -113,21 +142,21 @@ const Approvals = () => {
     );
   };
 
-  const handleViewDetails = (id: number) => {
-    console.log('Viewing details for:', id);
+  const handleViewDetails = (item: ApprovalItem) => {
+    if (item.route) navigate(item.route);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-background pb-20 text-foreground">
       <MobileHeader title="Inbox" />
 
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Work Inbox</h1>
-          <p className="text-sm text-gray-500 mt-1">Review approvals and items that need your attention.</p>
+          <h1 className="text-2xl font-bold">Work Inbox</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Approvals, lifecycle work and items that need your attention.</p>
         </div>
 
-        <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
+        <div className="flex space-x-2 rounded-lg bg-muted p-1">
           {(['pending', 'approved', 'rejected'] as ApprovalStatus[]).map((status) => (
             <Button
               key={status}
@@ -142,86 +171,68 @@ const Approvals = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-orange-50 border-orange-200">
+          <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">{counts.pending}</div>
-              <div className="text-xs text-orange-700">Pending</div>
+              <div className="text-2xl font-bold text-primary">{counts.pending}</div>
+              <div className="text-xs text-muted-foreground">Pending</div>
             </CardContent>
           </Card>
-          <Card className="bg-green-50 border-green-200">
+          <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{counts.approved}</div>
-              <div className="text-xs text-green-700">Approved</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{counts.approved}</div>
+              <div className="text-xs text-muted-foreground">Approved</div>
             </CardContent>
           </Card>
-          <Card className="bg-red-50 border-red-200">
+          <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{counts.rejected}</div>
-              <div className="text-xs text-red-700">Rejected</div>
+              <div className="text-2xl font-bold text-destructive">{counts.rejected}</div>
+              <div className="text-xs text-muted-foreground">Rejected</div>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900 capitalize">{activeFilter} items</h2>
+          <h2 className="text-lg font-semibold capitalize">{activeFilter} items</h2>
 
           {filteredApprovals.map((approval) => (
-            <Card
-              key={approval.id}
-              className="bg-white border border-gray-200 hover:shadow-md transition-shadow duration-200"
-            >
+            <Card key={approval.id} className="transition-shadow duration-200 hover:shadow-md">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex items-start space-x-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <approval.icon className="h-5 w-5 text-blue-600" />
+                    <div className="rounded-lg bg-muted p-2">
+                      <approval.icon className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 space-y-1">
-                      <h3 className="font-semibold text-gray-900">{approval.type}</h3>
+                      <h3 className="font-semibold">{approval.type}</h3>
                       <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-gray-600">{approval.employeeAvatar}</span>
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted">
+                          <span className="text-xs font-medium text-muted-foreground">{approval.employeeAvatar}</span>
                         </div>
-                        <p className="text-sm text-gray-600">{approval.employee}</p>
+                        <p className="text-sm text-muted-foreground">{approval.employee}</p>
                       </div>
-                      <p className="text-sm text-gray-500">{approval.description}</p>
-                      <div className="flex items-center space-x-2 text-xs text-gray-500">
-                        <span>{approval.date}</span>
-                        <span>•</span>
-                        <span>{approval.duration}</span>
-                        <span>•</span>
-                        <span>{approval.submittedAt}</span>
+                      <p className="text-sm text-muted-foreground">{approval.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{approval.date}</span><span>•</span><span>{approval.duration}</span><span>•</span><span>{approval.submittedAt}</span>
                       </div>
                     </div>
                   </div>
-                  <Badge variant="secondary" className={statusStyles[approval.status]}>
+                  <Badge variant="outline" className={statusStyles[approval.status]}>
                     {approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}
                   </Badge>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   {approval.status === 'pending' && (
                     <>
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        onClick={() => updateStatus(approval.id, 'approved')}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
+                      <Button size="sm" className="flex-1" onClick={() => updateStatus(approval.id, 'approved')}>
+                        <CheckCircle className="mr-1 h-4 w-4" />Approve
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
-                        onClick={() => updateStatus(approval.id, 'rejected')}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Reject
+                      <Button size="sm" variant="outline" className="flex-1 text-destructive" onClick={() => updateStatus(approval.id, 'rejected')}>
+                        <XCircle className="mr-1 h-4 w-4" />Reject
                       </Button>
                     </>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => handleViewDetails(approval.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleViewDetails(approval)} disabled={!approval.route}>
                     View
                   </Button>
                 </div>
@@ -230,12 +241,12 @@ const Approvals = () => {
           ))}
 
           {filteredApprovals.length === 0 && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-gray-400" />
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <CheckCircle className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No {activeFilter} items</h3>
-              <p className="text-gray-500">There are no {activeFilter} items in your inbox.</p>
+              <h3 className="mb-2 text-lg font-medium">No {activeFilter} items</h3>
+              <p className="text-muted-foreground">There are no {activeFilter} items in your inbox.</p>
             </div>
           )}
         </div>
