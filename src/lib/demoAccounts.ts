@@ -1,6 +1,6 @@
-// Local demo accounts for development only.
-// These are enabled solely when running the Vite dev server (import.meta.env.DEV)
-// and are stripped from production behaviour. They bypass Supabase entirely.
+// Demo accounts for local development and explicitly enabled hosted test environments.
+// Hosted demo access is opt-in via VITE_ENABLE_DEMO_LOGIN=true.
+// These accounts bypass Supabase entirely and should remain disabled on production deployments.
 
 export type DemoRole = 'admin' | 'hr' | 'manager' | 'employee' | 'super_admin';
 
@@ -12,7 +12,8 @@ export interface DemoAccount {
   role: DemoRole;
 }
 
-export const DEMO_LOGIN_ENABLED = import.meta.env.DEV;
+export const DEMO_LOGIN_ENABLED =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
 export const DEMO_STORAGE_KEY = 'demo_user';
 
