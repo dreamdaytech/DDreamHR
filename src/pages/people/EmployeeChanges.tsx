@@ -136,7 +136,7 @@ const EmployeeChanges = () => {
                       </div>
                       <CardDescription className="mt-1">{change.id} · Effective {change.effectiveDate}</CardDescription>
                     </div>
-                    <Link to={`/people/employees/${change.employeeId}`}>
+                    <Link to={`/employees/${change.employeeId}`}>
                       <Button variant="ghost" size="sm">
                         Employee record <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
