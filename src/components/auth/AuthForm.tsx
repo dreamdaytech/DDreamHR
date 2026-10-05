@@ -192,7 +192,7 @@ const AuthForm = () => {
             {DEMO_LOGIN_ENABLED && (
               <div className="mt-6 rounded-md border border-dashed p-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Demo accounts (local dev only) — password: Demo@1234
+                  Demo accounts — testing environment — password: Demo@1234
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {DEMO_ACCOUNTS.map((account) => (
