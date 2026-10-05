@@ -1,6 +1,5 @@
 /* Phase 2 theme completion overrides.
- * Loaded after index.css so legacy hard-coded surfaces follow the active theme
- * while screens are progressively migrated to semantic design tokens.
+ * Loaded after index.css so legacy hard-coded surfaces follow the active theme.
  */
 
 :root {
@@ -12,16 +11,13 @@
 }
 
 .dark {
-  --sidebar-background: 0 0% 10%;
-  --sidebar-foreground: 0 0% 96%;
-  --sidebar-border: 0 0% 18%;
-  --sidebar-accent: 192 55% 20%;
-  --sidebar-accent-foreground: 0 0% 96%;
+  --sidebar-background: 0 0% 0%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 14%;
+  --sidebar-accent: 192 55% 16%;
+  --sidebar-accent-foreground: 0 0% 98%;
 }
 
-/* Tailwind gradients on public pages use generated color stops rather than
- * background-color, so the generic dark-mode bridge in index.css cannot catch
- * them. These overrides make those gradients theme-aware. */
 .dark .from-white {
   --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position) !important;
   --tw-gradient-to: hsl(var(--background) / 0) var(--tw-gradient-to-position) !important;
@@ -33,31 +29,44 @@
 
 .dark .to-blue-50,
 .dark .from-blue-50 {
-  --tw-gradient-to: hsl(var(--muted)) var(--tw-gradient-to-position) !important;
-  --tw-gradient-from: hsl(var(--muted)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: hsl(var(--card)) var(--tw-gradient-to-position) !important;
+  --tw-gradient-from: hsl(var(--card)) var(--tw-gradient-from-position) !important;
 }
 
-/* Public marketing surfaces */
 .dark .bg-primary-50,
 .dark .bg-primary-100,
 .dark .bg-secondary-50,
 .dark .bg-secondary-100,
-.dark .bg-green-100 {
-  background-color: hsl(var(--muted)) !important;
+.dark .bg-green-50,
+.dark .bg-green-100,
+.dark .bg-blue-50,
+.dark .bg-blue-100,
+.dark .bg-purple-50,
+.dark .bg-purple-100,
+.dark .bg-orange-50,
+.dark .bg-red-50 {
+  background-color: hsl(var(--card)) !important;
 }
 
 .dark .text-primary-700,
-.dark .text-primary-800 {
-  color: hsl(var(--primary)) !important;
-}
-
+.dark .text-primary-800 { color: hsl(var(--primary)) !important; }
 .dark .text-secondary-700,
-.dark .text-secondary-800 {
-  color: hsl(var(--secondary)) !important;
+.dark .text-secondary-800 { color: hsl(var(--secondary)) !important; }
+
+.dark section:not(.bg-primary-700):not(.bg-secondary-700),
+.dark main,
+.dark [role='main'] {
+  color: hsl(var(--foreground));
 }
 
-/* Keep deliberately branded dark marketing bands dark in both themes, but
- * allow the standard public header/footer content to use semantic colors. */
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  --tw-shadow-color: rgb(0 0 0 / 0.65);
+}
+
 .public-surface {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
