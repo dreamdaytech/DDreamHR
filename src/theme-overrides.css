@@ -1,62 +1,163 @@
-/* Phase 2 theme completion overrides.
- * Loaded after index.css so legacy hard-coded surfaces follow the active theme.
+/* Theme hardening bridge.
+ * This file is loaded after Tailwind and forces legacy utility classes to obey
+ * DDreamHR's semantic light/dark tokens. New components should use semantic
+ * utilities directly (bg-background, bg-card, bg-muted, text-foreground, etc.).
  */
 
-:root {
-  --sidebar-background: 0 0% 98%;
-  --sidebar-foreground: 0 0% 18.4%;
-  --sidebar-border: 0 0% 89.8%;
-  --sidebar-accent: 192 71% 94%;
-  --sidebar-accent-foreground: 0 0% 18.4%;
+/* Tailwind's sidebar palette was historically hard-coded. Make the generated
+ * utilities follow the live theme variables without waiting for every caller
+ * to be migrated. */
+.bg-sidebar { background-color: hsl(var(--sidebar-background)) !important; }
+.text-sidebar-foreground { color: hsl(var(--sidebar-foreground)) !important; }
+.border-sidebar-border { border-color: hsl(var(--sidebar-border)) !important; }
+.bg-sidebar-accent { background-color: hsl(var(--sidebar-accent)) !important; }
+.text-sidebar-accent-foreground { color: hsl(var(--sidebar-accent-foreground)) !important; }
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 .dark {
-  --sidebar-background: 0 0% 0%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 14%;
-  --sidebar-accent: 192 55% 16%;
-  --sidebar-accent-foreground: 0 0% 98%;
+  color-scheme: dark;
 }
 
-.dark .from-white {
-  --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position) !important;
-  --tw-gradient-to: hsl(var(--background) / 0) var(--tw-gradient-to-position) !important;
+/* Fractional white backgrounds (for example bg-white/70) are distinct
+ * Tailwind classes and were the source of the remaining gray dashboard blocks. */
+.dark [class*="bg-white/"] {
+  background-color: hsl(var(--card)) !important;
 }
 
-.dark .to-white {
-  --tw-gradient-to: hsl(var(--background)) var(--tw-gradient-to-position) !important;
+/* Common legacy light surfaces. */
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-gray-200,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-slate-200,
+.dark .bg-zinc-50,
+.dark .bg-zinc-100,
+.dark .bg-zinc-200,
+.dark .bg-neutral-50,
+.dark .bg-neutral-100,
+.dark .bg-neutral-200,
+.dark .bg-stone-50,
+.dark .bg-stone-100,
+.dark .bg-stone-200 {
+  background-color: hsl(var(--card)) !important;
 }
 
-.dark .to-blue-50,
-.dark .from-blue-50 {
-  --tw-gradient-to: hsl(var(--card)) var(--tw-gradient-to-position) !important;
-  --tw-gradient-from: hsl(var(--card)) var(--tw-gradient-from-position) !important;
-}
-
+/* Pale feature colors become a subtle semantic surface rather than pastel
+ * panels in dark mode. Brand/status meaning stays on icons/text/borders. */
 .dark .bg-primary-50,
 .dark .bg-primary-100,
 .dark .bg-secondary-50,
 .dark .bg-secondary-100,
-.dark .bg-green-50,
-.dark .bg-green-100,
 .dark .bg-blue-50,
 .dark .bg-blue-100,
+.dark .bg-indigo-50,
+.dark .bg-indigo-100,
+.dark .bg-cyan-50,
+.dark .bg-cyan-100,
+.dark .bg-sky-50,
+.dark .bg-sky-100,
+.dark .bg-green-50,
+.dark .bg-green-100,
+.dark .bg-emerald-50,
+.dark .bg-emerald-100,
 .dark .bg-purple-50,
 .dark .bg-purple-100,
+.dark .bg-yellow-50,
+.dark .bg-yellow-100,
+.dark .bg-amber-50,
+.dark .bg-amber-100,
 .dark .bg-orange-50,
-.dark .bg-red-50 {
-  background-color: hsl(var(--card)) !important;
+.dark .bg-orange-100,
+.dark .bg-red-50,
+.dark .bg-red-100,
+.dark .bg-rose-50,
+.dark .bg-rose-100 {
+  background-color: hsl(var(--muted)) !important;
 }
 
-.dark .text-primary-700,
-.dark .text-primary-800 { color: hsl(var(--primary)) !important; }
-.dark .text-secondary-700,
-.dark .text-secondary-800 { color: hsl(var(--secondary)) !important; }
+/* Legacy neutral text follows semantic foreground contrast. */
+.dark .text-gray-950,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-zinc-950,
+.dark .text-zinc-900,
+.dark .text-zinc-800,
+.dark .text-neutral-950,
+.dark .text-neutral-900,
+.dark .text-neutral-800,
+.dark .text-brand-gray {
+  color: hsl(var(--foreground)) !important;
+}
 
-.dark section:not(.bg-primary-700):not(.bg-secondary-700),
-.dark main,
-.dark [role='main'] {
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400,
+.dark .text-zinc-700,
+.dark .text-zinc-600,
+.dark .text-zinc-500,
+.dark .text-zinc-400,
+.dark .text-neutral-700,
+.dark .text-neutral-600,
+.dark .text-neutral-500,
+.dark .text-neutral-400 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Borders and form controls. */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-zinc-100,
+.dark .border-zinc-200,
+.dark .border-neutral-100,
+.dark .border-neutral-200,
+.dark .border-blue-200,
+.dark .border-indigo-200 {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select,
+.dark [role="combobox"] {
+  background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Legacy pale gradients. */
+.dark .from-white,
+.dark .from-blue-50,
+.dark .from-indigo-50,
+.dark .from-slate-50 {
+  --tw-gradient-from: hsl(var(--card)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: hsl(var(--card) / 0) var(--tw-gradient-to-position) !important;
+}
+.dark .to-white,
+.dark .to-blue-50,
+.dark .to-indigo-50,
+.dark .to-slate-50 {
+  --tw-gradient-to: hsl(var(--muted)) var(--tw-gradient-to-position) !important;
 }
 
 .dark .shadow-sm,
@@ -64,7 +165,7 @@
 .dark .shadow-lg,
 .dark .shadow-xl,
 .dark .shadow-2xl {
-  --tw-shadow-color: rgb(0 0 0 / 0.65);
+  --tw-shadow-color: rgb(0 0 0 / 0.72);
 }
 
 .public-surface {
