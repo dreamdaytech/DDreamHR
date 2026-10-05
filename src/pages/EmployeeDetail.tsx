@@ -1,8 +1,7 @@
-
-import EmployeeProfile from '@/components/employees/EmployeeProfile';
+import EmployeeRecord from '@/components/employees/EmployeeRecord';
 
 const EmployeeDetail = () => {
-  return <EmployeeProfile />;
+  return <EmployeeRecord />;
 };
 
 export default EmployeeDetail;
