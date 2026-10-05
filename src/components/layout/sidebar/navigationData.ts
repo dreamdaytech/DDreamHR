@@ -98,7 +98,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     items.push({
       name: 'Inbox',
       icon: Inbox,
-      path: '/inbox',
+      path: '/approvals',
       roles: managerRoles
     });
   }
@@ -107,10 +107,10 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     items.push({
       name: 'People',
       icon: Users,
-      path: '/people',
+      path: '/employees',
       roles: peopleRoles,
       children: [
-        { name: 'Employees', path: '/people', roles: peopleRoles },
+        { name: 'Employees', path: '/employees', roles: peopleRoles },
         { name: 'Preboarding', path: '/hr-lifecycle/preboarding', roles: adminHrRoles },
         { name: 'Onboarding', path: '/hr-lifecycle/onboarding', roles: managerRoles },
         { name: 'Offboarding', path: '/hr-lifecycle/offboarding', roles: managerRoles }
