@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
 export const AttendanceCheckInOut = () => {
-  const { 
+  const {
     isCheckedIn,
     isOnBreak,
     currentBreak,
@@ -22,32 +22,20 @@ export const AttendanceCheckInOut = () => {
     startBreak,
     endBreak
   } = useAttendance();
-  
+
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedLocationName, setSelectedLocationName] = useState('');
   const [showLocationError, setShowLocationError] = useState(false);
-  
-  console.log('AttendanceCheckInOut - selectedLocation:', selectedLocation);
-  console.log('AttendanceCheckInOut - selectedLocationName:', selectedLocationName);
-  console.log('AttendanceCheckInOut - isCheckedIn:', isCheckedIn);
-  
+
   const handleLocationChange = (locationId: string, locationName: string) => {
-    console.log('handleLocationChange called with:', { locationId, locationName });
     setSelectedLocation(locationId);
     setSelectedLocationName(locationName);
-    if (showLocationError) {
-      setShowLocationError(false);
-    }
+    if (showLocationError) setShowLocationError(false);
   };
 
   const handleCheckIn = async () => {
-    console.log('handleCheckIn called');
-    console.log('Current selectedLocation:', selectedLocation);
-    console.log('Current selectedLocationName:', selectedLocationName);
-    
-    // Validate location selection before check-in
     if (!selectedLocation || !selectedLocationName) {
       setShowLocationError(true);
       toast({
@@ -60,14 +48,12 @@ export const AttendanceCheckInOut = () => {
 
     setIsChecking(true);
     try {
-      // Pass location information to check-in
       const success = await checkIn(selectedLocationName);
       if (success) {
         toast({
           title: "Checked in successfully",
           description: `Location: ${selectedLocationName}`,
         });
-        // Clear location selection after successful check-in
         setSelectedLocation('');
         setSelectedLocationName('');
       }
@@ -96,7 +82,7 @@ export const AttendanceCheckInOut = () => {
 
   const handleEndBreak = async () => {
     if (!currentBreak) return;
-    
+
     setIsChecking(true);
     try {
       await endBreak(currentBreak.id);
@@ -106,20 +92,19 @@ export const AttendanceCheckInOut = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md border-blue-200">
+    <Card className="border-border bg-card text-card-foreground shadow-md">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">Attendance Check-In</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ClockDisplay />
-        
-        <AttendanceStatus 
+
+        <AttendanceStatus
           isCheckedIn={isCheckedIn}
           isOnBreak={isOnBreak}
           todayAttendance={todayAttendance}
         />
 
-        {/* Location Selection - Show beneath status and only if not checked in */}
         {!isCheckedIn && (
           <div className="space-y-2">
             <LocationSelector
@@ -127,8 +112,7 @@ export const AttendanceCheckInOut = () => {
               onLocationChange={handleLocationChange}
               disabled={isChecking}
             />
-            
-            {/* Location Selection Error */}
+
             {showLocationError && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -140,14 +124,13 @@ export const AttendanceCheckInOut = () => {
           </div>
         )}
 
-        {/* Show current location if checked in */}
         {isCheckedIn && todayAttendance?.location && (
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="text-sm font-medium text-blue-900">Current Location</p>
-            <p className="text-sm text-blue-700">{todayAttendance.location}</p>
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm font-medium text-foreground">Current Location</p>
+            <p className="text-sm text-muted-foreground">{todayAttendance.location}</p>
           </div>
         )}
-        
+
         <CheckInOutButtons
           isCheckedIn={isCheckedIn}
           isOnBreak={isOnBreak}
@@ -156,8 +139,8 @@ export const AttendanceCheckInOut = () => {
           handleCheckOut={handleCheckOut}
           hasLocationSelected={!!selectedLocation}
         />
-        
-        <BreakButtons 
+
+        <BreakButtons
           isCheckedIn={isCheckedIn}
           isOnBreak={isOnBreak}
           isChecking={isChecking}
