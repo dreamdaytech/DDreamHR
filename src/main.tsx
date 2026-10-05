@@ -1,7 +1,7 @@
-
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import './theme-overrides.css'
 
 // PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
@@ -16,13 +16,14 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Load theme preference
+// Load theme preference before rendering the app.
 const savedTheme = localStorage.getItem('theme');
-if (savedTheme) {
-  document.documentElement.className = savedTheme;
-} else {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.className = prefersDark ? 'dark' : 'light';
-}
+const activeTheme = savedTheme === 'light' || savedTheme === 'dark'
+  ? savedTheme
+  : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+document.documentElement.classList.remove('light', 'dark');
+document.documentElement.classList.add(activeTheme);
+document.documentElement.style.colorScheme = activeTheme;
 
 createRoot(document.getElementById("root")!).render(<App />);
