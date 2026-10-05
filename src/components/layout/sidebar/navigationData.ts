@@ -110,10 +110,12 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
       path: '/employees',
       roles: peopleRoles,
       children: [
-        { name: 'Employees', path: '/employees', roles: peopleRoles },
-        { name: 'Preboarding', path: '/hr-lifecycle/preboarding', roles: adminHrRoles },
-        { name: 'Onboarding', path: '/hr-lifecycle/onboarding', roles: managerRoles },
-        { name: 'Offboarding', path: '/hr-lifecycle/offboarding', roles: managerRoles }
+        { name: 'Overview', path: '/employees', roles: peopleRoles },
+        { name: 'Employees', path: '/employees?view=directory', roles: peopleRoles },
+        { name: 'New Hires', path: '/employees?view=new-hires', roles: peopleRoles },
+        { name: 'Employee Changes', path: '/employees?view=changes', roles: peopleRoles },
+        { name: 'Offboarding', path: '/employees?view=offboarding', roles: peopleRoles },
+        { name: 'Former Employees', path: '/employees?view=former', roles: peopleRoles }
       ]
     });
   } else if (userRole === 'manager') {
