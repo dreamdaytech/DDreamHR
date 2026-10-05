@@ -8,40 +8,40 @@ interface AttendanceStatusProps {
   todayAttendance: AttendanceRecord | null;
 }
 
-export const AttendanceStatus = ({ 
-  isCheckedIn, 
+export const AttendanceStatus = ({
+  isCheckedIn,
   isOnBreak,
-  todayAttendance 
+  todayAttendance
 }: AttendanceStatusProps) => {
   return (
-    <div className="grid gap-4 mb-4">
-      <div className="bg-white p-3 rounded-lg border border-blue-200">
-        <div className="text-sm font-medium text-slate-500">Status</div>
-        <div className="flex items-center mt-1">
+    <div className="mb-4 grid gap-4">
+      <div className="rounded-lg border border-border bg-muted/35 p-3 text-foreground">
+        <div className="text-sm font-medium text-muted-foreground">Status</div>
+        <div className="mt-1 flex items-center">
           <div className={cn(
-            "h-3 w-3 rounded-full mr-2",
-            isCheckedIn ? "bg-green-500" : "bg-gray-300"
+            "mr-2 h-3 w-3 rounded-full",
+            isCheckedIn ? "bg-green-500" : "bg-muted-foreground/50"
           )} />
           <span className="font-medium">
-            {isCheckedIn 
-              ? isOnBreak 
-                ? 'On Break' 
-                : 'Checked In' 
+            {isCheckedIn
+              ? isOnBreak
+                ? 'On Break'
+                : 'Checked In'
               : 'Not Checked In'}
           </span>
         </div>
       </div>
-      
+
       {todayAttendance && (
-        <div className="bg-white p-3 rounded-lg border border-blue-200">
-          <div className="text-sm font-medium text-slate-500">Today's Record</div>
-          <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="rounded-lg border border-border bg-muted/35 p-3 text-foreground">
+          <div className="text-sm font-medium text-muted-foreground">Today's Record</div>
+          <div className="mt-1 grid grid-cols-2 gap-2">
             <div>
-              <div className="text-xs text-slate-500">Check In</div>
+              <div className="text-xs text-muted-foreground">Check In</div>
               <div className="font-medium">{todayAttendance.checkIn || '-'}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Check Out</div>
+              <div className="text-xs text-muted-foreground">Check Out</div>
               <div className="font-medium">{todayAttendance.checkOut || '-'}</div>
             </div>
           </div>
