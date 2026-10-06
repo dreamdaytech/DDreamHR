@@ -15,6 +15,8 @@ interface User {
   businessName?: string | null;
   employeeId?: string | null;
   employeeNumber?: string | null;
+  lifecycleState?: string | null;
+  employmentCondition?: string | null;
 }
 
 interface AuthContextType {
@@ -71,6 +73,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       business_name?: string | null;
       employee_id?: string | null;
       employee_number?: string | null;
+      lifecycle_state?: string | null;
+      employment_condition?: string | null;
     } | null;
 
     const userRole = profile.is_super_admin
@@ -86,6 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       businessName: context?.business_name ?? null,
       employeeId: context?.employee_id ?? null,
       employeeNumber: context?.employee_number ?? null,
+      lifecycleState: context?.lifecycle_state ?? null,
+      employmentCondition: context?.employment_condition ?? null,
     };
   };
 
