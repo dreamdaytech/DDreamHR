@@ -167,7 +167,7 @@ export function useCheckInOutService(
           : {
               ...(await updateAttendanceCheckOut(todayAttendance.id, {
                 totalHours,
-                locationName: getNearestLocationName?.() || todayAttendance.location,
+                locationName: (await getNearestLocationName()) || todayAttendance.location,
                 ipAddress: await getClientIpAddress(),
                 device: navigator.userAgent,
               })),
