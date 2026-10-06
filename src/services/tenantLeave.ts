@@ -131,6 +131,54 @@ export const submitLeaveRequest = async (input: {
     if (attachmentError) throw attachmentError;
   }
 
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('manager:manager_id(user_id)')
+    .eq('id', context.employeeId)
+    .maybeSingle();
+  const manager = Array.isArray((employee as any)?.manager)
+    ? (employee as any).manager[0]
+    : (employee as any)?.manager;
+
+  const { data: workflow, error: workflowError } = await supabase
+    .from('workflow_requests')
+    .insert({
+      business_id: context.businessId,
+      request_type: 'leave',
+      source_type: 'leave_request',
+      source_id: request.id,
+      employee_id: context.employeeId,
+      submitted_by: context.userId,
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+      payload: {
+        leave_type: leaveType.name,
+        start_date: request.start_date,
+        end_date: request.end_date,
+        days: request.days,
+        reason: request.reason,
+      },
+    })
+    .select()
+    .single();
+
+  if (workflowError) throw workflowError;
+
+  const { error: workItemError } = await supabase.from('work_items').insert({
+    business_id: context.businessId,
+    assignee_user_id: manager?.user_id || null,
+    assignee_role: manager?.user_id ? null : 'manager',
+    category: 'leave',
+    source_type: 'workflow_request',
+    source_id: workflow.id,
+    title: 'Leave request approval',
+    description: `${leaveType.name}: ${request.start_date} to ${request.end_date}`,
+    status: 'open',
+    priority: 'normal',
+  });
+
+  if (workItemError) throw workItemError;
+
   return request;
 };
 
