@@ -28,6 +28,8 @@ import { Lock, Mail, User as UserIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEMO_ACCOUNTS, DEMO_LOGIN_ENABLED } from '@/lib/demoAccounts';
 
+const PUBLIC_SIGNUP_ENABLED = import.meta.env.VITE_ENABLE_PUBLIC_SIGNUP === 'true';
+
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
@@ -128,13 +130,13 @@ const AuthForm = () => {
     <Card className="w-full max-w-md mx-auto shadow-lg">
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl font-bold text-primary-700">DDreamHR</CardTitle>
-        <CardDescription>Welcome! Sign in or create an account.</CardDescription>
+        <CardDescription>{PUBLIC_SIGNUP_ENABLED ? 'Welcome! Sign in or create an account.' : 'Welcome! Sign in to your DDreamHR workspace.'}</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={PUBLIC_SIGNUP_ENABLED ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
             <TabsTrigger value="login">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            {PUBLIC_SIGNUP_ENABLED && <TabsTrigger value="signup">Sign Up</TabsTrigger>}
           </TabsList>
           <TabsContent value="login">
             <Form {...loginForm}>
@@ -214,6 +216,7 @@ const AuthForm = () => {
               </div>
             )}
           </TabsContent>
+          {PUBLIC_SIGNUP_ENABLED && (
           <TabsContent value="signup">
             <Form {...signUpForm}>
               <form onSubmit={signUpForm.handleSubmit(onSignUp)} className="space-y-4 pt-4">
@@ -309,6 +312,7 @@ const AuthForm = () => {
               </form>
             </Form>
           </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>
