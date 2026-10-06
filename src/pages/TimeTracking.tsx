@@ -14,17 +14,33 @@ import { Button } from "@/components/ui/button";
 import { Plus, FileInput, Download, Calendar as CalendarIcon, List, CheckCircle, Clock, BarChart3, Users, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { downloadTextFile, readDemoData, toCsv } from "@/lib/demoStore";
 
 const TimeTracking = () => {
   const { toast } = useToast();
   const { user, hasRole } = useAuth();
+  const navigate = useNavigate();
   const [view, setView] = useState<"list" | "calendar">("list");
   const [activeTab, setActiveTab] = useState("tracker");
   
   const handleExport = (format: string) => {
+    const timesheets = readDemoData<any[]>('timesheets', []);
+    const logs = readDemoData<any[]>('time-logs', []);
+    const rows = timesheets.length
+      ? timesheets
+      : logs.map((log) => ({
+          id: log.id,
+          date: log.date,
+          project: log.project,
+          task: log.task,
+          hours: log.hours,
+          billable: log.billable,
+        }));
+    downloadTextFile(`ddreamhr-time-export.${format}`, toCsv(rows), 'text/csv;charset=utf-8');
     toast({
-      title: "Export Started",
-      description: `Exporting data as ${format}...`,
+      title: "Export complete",
+      description: `${rows.length} time record(s) downloaded.`,
     });
   };
 
@@ -210,15 +226,15 @@ const TimeTracking = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/reports')}>
                       <BarChart3 className="h-4 w-4 mr-2" />
                       View Reports
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="outline" className="w-full justify-start" onClick={() => handleExport('csv')}>
                       <Download className="h-4 w-4 mr-2" />
                       Export Timesheet
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('timesheets')}>
                       <CalendarIcon className="h-4 w-4 mr-2" />
                       Weekly Overview
                     </Button>
