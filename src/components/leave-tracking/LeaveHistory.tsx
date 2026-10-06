@@ -81,9 +81,16 @@ export const LeaveHistory = () => {
     }
   ];
 
-  const personalLeaveHistory = [...readDemoData<any[]>('leave-requests', []), ...seedPersonalLeaveHistory];
+  const storedLeaveRequests = readDemoData<any[]>('leave-requests', []);
+  const personalLeaveHistory = [
+    ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
+    ...seedPersonalLeaveHistory,
+  ];
 
   const teamLeaveHistory = [
+    ...storedLeaveRequests
+      .filter((leave) => leave.employeeId !== user?.id)
+      .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
     {
       id: 4,
       type: 'Annual Leave',
