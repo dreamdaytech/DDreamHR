@@ -20,6 +20,7 @@ import HrDashboard from "./pages/HrDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import Employees from "./pages/Employees";
 import EmployeeDetail from "./pages/EmployeeDetail";
+import EmployeeInvitations from "./pages/people/EmployeeInvitations";
 import Attendance from "./pages/Attendance";
 import Reports from "./pages/Reports";
 import Documents from "./pages/Documents";
@@ -243,6 +244,12 @@ const App = () => (
                   </RequireAuth>
                 } />
                 
+                <Route path="/employees/invitations" element={
+                  <RequireAuth allowedRoles={['admin', 'hr']}>
+                    <EmployeeInvitations />
+                  </RequireAuth>
+                } />
+
                 <Route path="/employees/:id" element={
                   <RequireAuth allowedRoles={['admin', 'hr']}>
                     <EmployeeDetail />
