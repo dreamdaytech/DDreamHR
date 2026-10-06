@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { decideLeaveRequest, listPendingLeaveRequests } from '@/services/tenantLeave';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Users, 
@@ -70,46 +71,81 @@ export const LeaveApprovalManager = () => {
   ];
 
   const [pendingRequests, setPendingRequests] = useState<any[]>(() => {
+    if (!isDemoSession()) return [];
     const stored = readDemoData<any[]>('leave-requests', []).filter((request) => request.status === 'pending');
     return stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' }));
   });
 
-  const handleApproval = (requestId: number, action: 'approve' | 'reject') => {
-    const request = pendingRequests.find((item) => item.id === requestId);
+  const refreshPendingRequests = async () => {
+    if (isDemoSession()) {
+      const stored = readDemoData<any[]>('leave-requests', []).filter((request) => request.status === 'pending');
+      setPendingRequests(stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' })));
+      return;
+    }
+
+    try {
+      setPendingRequests(await listPendingLeaveRequests());
+    } catch (error) {
+      toast({
+        title: 'Could not load leave approvals',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    void refreshPendingRequests();
+  }, []);
+
+  const handleApproval = async (requestId: string | number, action: 'approve' | 'reject') => {
+    const request = pendingRequests.find((item) => String(item.id) === String(requestId));
     if (!request) return;
 
-    const nextStatus = action === 'approve' ? 'approved' : 'rejected';
-    const stored = readDemoData<any[]>('leave-requests', []);
-    const source = stored.length ? stored : pendingRequests;
-    const updated = source.map((item) =>
-      item.id === requestId
-        ? {
-            ...item,
-            status: nextStatus,
-            approvedBy: 'Demo Approver',
-            timeline: [
-              ...(item.timeline || []),
-              {
-                date: new Date().toISOString().split('T')[0],
-                action: action === 'approve' ? 'Approved' : 'Rejected',
-                by: 'Demo Approver',
-                comment: comments || undefined,
-              },
-            ],
-          }
-        : item,
-    );
+    try {
+      if (isDemoSession()) {
+        const nextStatus = action === 'approve' ? 'approved' : 'rejected';
+        const stored = readDemoData<any[]>('leave-requests', []);
+        const source = stored.length ? stored : pendingRequests;
+        const updated = source.map((item) =>
+          String(item.id) === String(requestId)
+            ? {
+                ...item,
+                status: nextStatus,
+                approvedBy: 'Demo Approver',
+                timeline: [
+                  ...(item.timeline || []),
+                  {
+                    date: new Date().toISOString().split('T')[0],
+                    action: action === 'approve' ? 'Approved' : 'Rejected',
+                    by: 'Demo Approver',
+                    comment: comments || undefined,
+                  },
+                ],
+              }
+            : item,
+        );
+        writeDemoData('leave-requests', updated);
+      } else {
+        await decideLeaveRequest(String(requestId), action, comments);
+      }
 
-    writeDemoData('leave-requests', updated);
-    setPendingRequests((current) => current.filter((item) => item.id !== requestId));
+      await refreshPendingRequests();
 
-    toast({
-      title: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
-      description: `${request.employee || request.employeeName}'s leave request has been ${action}d.`,
-      variant: action === 'approve' ? 'default' : 'destructive'
-    });
+      toast({
+        title: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+        description: `${request.employee || request.employeeName}'s leave request has been ${action}d.`,
+        variant: action === 'approve' ? 'default' : 'destructive'
+      });
 
-    setComments('');
+      setComments('');
+    } catch (error) {
+      toast({
+        title: 'Could not update leave request',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isMobile) {
