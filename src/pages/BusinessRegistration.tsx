@@ -11,7 +11,7 @@ import {
   type BusinessRegistrationInput,
 } from '@/services/businessRegistration';
 import { createTenantEmployee } from '@/services/tenantPeople';
-import { sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
+import { roleHome, sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -72,6 +72,7 @@ const BusinessRegistration = () => {
     }
   });
   const [workspace, setWorkspace] = useState<{ businessId: string; name: string } | null>(null);
+  const [existingRole, setExistingRole] = useState<string>('admin');
   const [teamMember, setTeamMember] = useState({
     firstName: '',
     lastName: '',
@@ -108,7 +109,23 @@ const BusinessRegistration = () => {
       const context = await getTenantContext().catch(() => null);
       if (cancelled) return;
 
+      if (context?.isSuperAdmin) {
+        navigate('/super-admin/dashboard', { replace: true });
+        return;
+      }
+
       if (context?.businessId) {
+        if (context.lifecycleState === 'onboarding' || context.lifecycleState === 'preboarding') {
+          navigate('/hr-lifecycle/portal', { replace: true });
+          return;
+        }
+
+        if (!['admin', 'hr'].includes(context.role)) {
+          navigate(roleHome(context.role), { replace: true });
+          return;
+        }
+
+        setExistingRole(context.role);
         setWorkspace({ businessId: context.businessId, name: context.businessName || 'Your workspace' });
         setStep(6);
       } else {
@@ -317,7 +334,7 @@ const BusinessRegistration = () => {
   };
 
   const launchWorkspace = () => {
-    window.location.assign('/admin/dashboard');
+    window.location.assign(roleHome(existingRole || 'admin'));
   };
 
   if (checkingSession) {
