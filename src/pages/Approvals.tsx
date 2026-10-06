@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,8 @@ const initialApprovals: ApprovalItem[] = [
     status: 'pending',
     icon: Calendar,
     description: 'Annual Leave · Family vacation',
-    submittedAt: '2 hours ago'
+    submittedAt: '2 hours ago',
+    route: '/leave-tracking'
   },
   {
     id: 2,
@@ -45,7 +47,8 @@ const initialApprovals: ApprovalItem[] = [
     status: 'pending',
     icon: Clock,
     description: 'Weekly timesheet · 2 entries flagged',
-    submittedAt: '5 hours ago'
+    submittedAt: '5 hours ago',
+    route: '/time-tracking'
   },
   {
     id: 3,
@@ -83,7 +86,8 @@ const initialApprovals: ApprovalItem[] = [
     status: 'pending',
     icon: FileText,
     description: 'Employment contract revision',
-    submittedAt: '1 day ago'
+    submittedAt: '1 day ago',
+    route: '/documents'
   },
   {
     id: 6,
@@ -95,7 +99,8 @@ const initialApprovals: ApprovalItem[] = [
     status: 'approved',
     icon: Calendar,
     description: 'Personal leave',
-    submittedAt: '5 days ago'
+    submittedAt: '5 days ago',
+    route: '/leave-tracking'
   },
   {
     id: 7,
@@ -107,7 +112,8 @@ const initialApprovals: ApprovalItem[] = [
     status: 'rejected',
     icon: Clock,
     description: 'Weekly timesheet requires correction',
-    submittedAt: '1 week ago'
+    submittedAt: '1 week ago',
+    route: '/time-tracking'
   }
 ];
 
@@ -119,7 +125,7 @@ const statusStyles: Record<ApprovalStatus, string> = {
 
 const Approvals = () => {
   const [activeFilter, setActiveFilter] = useState<ApprovalStatus>('pending');
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(initialApprovals);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>(() => readDemoData<ApprovalItem[]>('inbox-items', initialApprovals));
   const navigate = useNavigate();
 
   const filteredApprovals = useMemo(
@@ -137,13 +143,15 @@ const Approvals = () => {
   );
 
   const updateStatus = (id: number, status: ApprovalStatus) => {
-    setApprovals((current) =>
-      current.map((approval) => (approval.id === id ? { ...approval, status } : approval))
-    );
+    setApprovals((current) => {
+      const next = current.map((approval) => (approval.id === id ? { ...approval, status } : approval));
+      writeDemoData('inbox-items', next);
+      return next;
+    });
   };
 
   const handleViewDetails = (item: ApprovalItem) => {
-    if (item.route) navigate(item.route);
+    navigate(item.route || '/dashboard');
   };
 
   return (
