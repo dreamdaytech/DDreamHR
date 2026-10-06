@@ -356,9 +356,16 @@ const EmployeeDirectory = () => {
           <h1 className="text-2xl font-bold tracking-tight text-brand-gray">Employee Directory</h1>
           <p className="text-muted-foreground">Manage your employees and their information.</p>
         </div>
-        <Button onClick={() => setShowEmployeeForm(true)} className="w-full sm:w-auto bg-primary hover:bg-secondary active:bg-secondary">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
-        </Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          {!isDemoSession() && (
+            <Button variant="outline" onClick={() => navigate('/employees/invitations')} className="flex-1 sm:flex-none">
+              <Mail className="mr-2 h-4 w-4" /> Invitations
+            </Button>
+          )}
+          <Button onClick={() => setShowEmployeeForm(true)} className="flex-1 bg-primary hover:bg-secondary active:bg-secondary sm:flex-none">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
