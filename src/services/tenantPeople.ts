@@ -353,18 +353,32 @@ export const advanceEmployeeChange = async (id: string, status: 'approved' | 'sc
 
   if (error) throw error;
 
-  if (status === 'completed') {
-    await supabase
-      .from('workflow_requests')
-      .update({ status: 'completed', completed_at: new Date().toISOString() })
-      .eq('source_type', 'employee_change')
-      .eq('source_id', id);
-  } else if (status === 'approved') {
-    await supabase
-      .from('workflow_requests')
-      .update({ status: 'approved' })
-      .eq('source_type', 'employee_change')
-      .eq('source_id', id);
+  const { data: workflow } = await supabase
+    .from('workflow_requests')
+    .select('id')
+    .eq('source_type', 'employee_change')
+    .eq('source_id', id)
+    .maybeSingle();
+
+  if (workflow) {
+    if (status === 'completed') {
+      await supabase
+        .from('workflow_requests')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', workflow.id);
+    } else if (status === 'approved') {
+      const completedAt = new Date().toISOString();
+      await supabase
+        .from('workflow_requests')
+        .update({ status: 'approved', completed_at: completedAt })
+        .eq('id', workflow.id);
+      await supabase
+        .from('work_items')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('source_type', 'workflow_request')
+        .eq('source_id', workflow.id)
+        .in('status', ['open', 'in_progress']);
+    }
   }
 
   return data;
