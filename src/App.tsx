@@ -407,7 +407,7 @@ const App = () => (
                 } />
                 
                 <Route path="/reports" element={
-                  <RequireAuth allowedRoles={['admin', 'hr', 'manager', 'employee']}>
+                  <RequireAuth allowedRoles={['admin', 'hr', 'manager']}>
                     <Reports />
                   </RequireAuth>
                 } />
