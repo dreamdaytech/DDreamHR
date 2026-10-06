@@ -1,13 +1,11 @@
 
 import React from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Users, Trophy, Calendar, MessageSquare, BarChart3, Plus } from 'lucide-react';
+import { Heart, Trophy, Calendar, MessageSquare, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Engagement = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const features = [
@@ -33,26 +31,12 @@ const Engagement = () => {
       color: 'bg-yellow-500'
     },
     {
-      title: 'Social Feed',
-      description: 'Company announcements and social interactions',
-      icon: Users,
-      path: '/engagement/social',
-      color: 'bg-purple-500'
-    },
-    {
       title: 'Events & Activities',
       description: 'Organize and participate in company events',
       icon: Calendar,
       path: '/engagement/events',
       color: 'bg-red-500'
     },
-    {
-      title: 'Communities',
-      description: 'Join interest groups and communities',
-      icon: Heart,
-      path: '/engagement/communities',
-      color: 'bg-pink-500'
-    }
   ];
 
   return (
