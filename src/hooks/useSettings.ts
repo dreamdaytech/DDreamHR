@@ -20,8 +20,8 @@ export const useSettings = () => {
   const demo = isDemoSession();
 
   // Get current user's role for access control
-  const hasAdminAccess = user?.role === 'admin';
-  const hasHRAccess = user?.role === 'hr' || user?.role === 'admin';
+  const hasAdminAccess = user?.role === 'admin' || user?.role === 'hr';
+  const hasHRAccess = hasAdminAccess;
 
   // Create error handler
   const handleError = createErrorHandler(toast);
