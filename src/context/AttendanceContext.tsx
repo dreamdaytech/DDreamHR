@@ -15,6 +15,7 @@ import { useBreakService } from './attendance/breakService';
 import { useRegularizationService } from './attendance/regularizationService';
 import { useAttendanceFetchService } from './attendance/attendanceFetchService';
 import { isDemoSession, readDemoData } from '@/lib/demoStore';
+import { listAttendanceBreaks, listRegularizationRequests, loadAttendanceSettings } from '@/services/tenantAttendance';
 
 // Mock data for development
 const MOCK_ATTENDANCE_SETTINGS: AttendanceSettings = {
@@ -70,7 +71,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [breakRecords, setBreakRecords] = useState<BreakRecord[]>([]);
   const [regularizationRequests, setRegularizationRequests] = useState<RegularizationRequest[]>([]);
-  const [attendanceSettings] = useState<AttendanceSettings>(MOCK_ATTENDANCE_SETTINGS);
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings>(MOCK_ATTENDANCE_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [currentBreak, setCurrentBreak] = useState<BreakRecord | null>(null);
@@ -131,33 +132,70 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsLoading
   );
 
-  // Fetch attendance records on load
+  // Fetch tenant-backed attendance data on load.
   useEffect(() => {
-    if (user) {
-      const storedBreaks = isDemoSession() ? readDemoData<BreakRecord[]>('attendance-breaks', []) : breakRecords;
-      if (isDemoSession()) {
-        setBreakRecords(storedBreaks);
-        setRegularizationRequests(readDemoData<RegularizationRequest[]>('attendance-regularization', []));
-      }
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
-      const today = new Date();
-      fetchAttendanceByDate(today).then((records) => {
-        if (records.length > 0) {
-          setTodayAttendance(records[0]);
+    let cancelled = false;
 
-          const activeBreak = storedBreaks.find((b) =>
-            b.attendanceId === records[0].id && !b.endTime
+    const initializeAttendance = async () => {
+      setIsLoading(true);
+      try {
+        if (isDemoSession()) {
+          const storedBreaks = readDemoData<BreakRecord[]>('attendance-breaks', []);
+          setBreakRecords(storedBreaks);
+          setRegularizationRequests(readDemoData<RegularizationRequest[]>('attendance-regularization', []));
+
+          const records = await fetchAttendanceByDate(new Date());
+          if (cancelled) return;
+          const todayRecord = records[0] || null;
+          setTodayAttendance(todayRecord);
+          setCurrentBreak(
+            todayRecord
+              ? storedBreaks.find((item) => item.attendanceId === todayRecord.id && !item.endTime) || null
+              : null,
           );
+          return;
+        }
 
-          setCurrentBreak(activeBreak || null);
+        const [settings, requests] = await Promise.all([
+          loadAttendanceSettings(),
+          listRegularizationRequests(),
+        ]);
+
+        if (cancelled) return;
+        if (settings) setAttendanceSettings(settings);
+        setRegularizationRequests(requests);
+
+        const records = await fetchAttendanceByDate(new Date());
+        if (cancelled) return;
+        const todayRecord = records[0] || null;
+        setTodayAttendance(todayRecord);
+
+        if (todayRecord) {
+          const breaks = await listAttendanceBreaks(todayRecord.id);
+          if (cancelled) return;
+          setBreakRecords(breaks);
+          setCurrentBreak(breaks.find((item) => !item.endTime) || null);
         } else {
-          setTodayAttendance(null);
+          setBreakRecords([]);
           setCurrentBreak(null);
         }
-        setIsLoading(false);
-      });
-    }
-  }, [user]);
+      } catch (error) {
+        console.error('Failed to initialize attendance', error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    void initializeAttendance();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const value = {
     attendanceRecords,
