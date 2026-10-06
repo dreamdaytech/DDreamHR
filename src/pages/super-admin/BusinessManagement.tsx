@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, UserPlus } from 'lucide-react';
+import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, Link2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +93,15 @@ const BusinessManagement = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportBusinesses}><Download className="mr-2 h-4 w-4" />Export</Button>
-          <Button asChild><Link to="/register"><UserPlus className="mr-2 h-4 w-4" />Open Registration</Link></Button>
+          <Button
+            onClick={async () => {
+              const registrationUrl = `${window.location.origin}/register`;
+              await navigator.clipboard.writeText(registrationUrl);
+              toast({ title: 'Registration link copied', description: registrationUrl });
+            }}
+          >
+            <Link2 className="mr-2 h-4 w-4" />Copy Registration Link
+          </Button>
         </div>
       </div>
 
