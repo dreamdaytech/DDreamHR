@@ -3594,6 +3594,7 @@ export type Database = {
         Args: { invitation_token: string }
         Returns: Json
       }
+      complete_my_onboarding_item: { Args: { item_id: string }; Returns: Json }
       get_business_growth_data: {
         Args: never
         Returns: {
