@@ -25,6 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from 'lucide-react';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 
 const formSchema = z.object({
   employeeId: z.string().min(1, { message: 'Employee ID is required' }),
@@ -111,7 +112,7 @@ type Dependent = {
   dateOfBirth: string;
 };
 
-const EmployeeForm = () => {
+const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: () => void }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
@@ -138,20 +139,35 @@ const EmployeeForm = () => {
   ];
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // In a real application, you would submit this data to an API
-    console.log({
-      ...values,
+    const existing = readDemoData<any[]>('employees', []);
+    const numericId = Date.now();
+    const employee = {
+      id: numericId,
+      name: `${values.firstName} ${values.lastName}`.trim(),
+      email: values.email,
+      phone: values.workPhone || values.personalMobile || '',
+      department: values.department,
+      position: values.designation,
+      location: values.location,
+      status: values.status,
+      imageUrl: '/placeholder.svg',
+      joiningDate: values.dateOfJoining || new Date().toISOString().split('T')[0],
+      employeeId: values.employeeId,
+      employmentType: values.employmentType,
+      reportingManager: values.reportingManager || '',
       workExperiences,
       educations,
-      dependents
-    });
+      dependents,
+    };
 
+    writeDemoData('employees', [employee, ...existing]);
     toast({
       title: "Employee added successfully",
-      description: `${values.firstName} ${values.lastName} has been added to the system`,
+      description: `${values.firstName} ${values.lastName} has been added to the demo workspace.`,
     });
-    
-    navigate('/employees');
+
+    if (onSaved) onSaved();
+    else navigate('/employees?view=directory');
   };
   
   const addWorkExperience = () => {
@@ -223,7 +239,7 @@ const EmployeeForm = () => {
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Add Employee</h1>
-        <Button variant="ghost" onClick={() => navigate('/employees')}>
+        <Button variant="ghost" onClick={() => onCancel ? onCancel() : navigate('/employees?view=directory')}>
           Cancel
         </Button>
       </div>
