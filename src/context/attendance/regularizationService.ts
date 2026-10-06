@@ -2,6 +2,7 @@
 import { useToast } from '@/hooks/use-toast';
 import { AttendanceRecord, RegularizationRequest } from '@/types/attendance';
 import { calculateTotalHours } from '@/utils/attendanceUtils';
+import { isDemoSession, writeDemoData } from '@/lib/demoStore';
 
 export function useRegularizationService(
   user: any,
@@ -43,7 +44,11 @@ export function useRegularizationService(
       
       // In a real app, this would be an API call
       // For now, we'll just update the state
-      setRegularizationRequests(prev => [...prev, newRequest]);
+      setRegularizationRequests(prev => {
+        const next = [...prev, newRequest];
+        if (isDemoSession()) writeDemoData('attendance-regularization', next);
+        return next;
+      });
       
       toast({
         title: "Request submitted",
@@ -106,9 +111,11 @@ export function useRegularizationService(
       
       // In a real app, this would be an API call
       // For now, we'll just update the state
-      setRegularizationRequests(prev => prev.map(r => 
-        r.id === requestId ? updatedRequest : r
-      ));
+      setRegularizationRequests(prev => {
+        const next = prev.map(r => r.id === requestId ? updatedRequest : r);
+        if (isDemoSession()) writeDemoData('attendance-regularization', next);
+        return next;
+      });
       
       // If the request is for a specific attendance record, update that too
       if (request.attendanceId) {
@@ -214,9 +221,11 @@ export function useRegularizationService(
       
       // In a real app, this would be an API call
       // For now, we'll just update the state
-      setRegularizationRequests(prev => prev.map(r => 
-        r.id === requestId ? updatedRequest : r
-      ));
+      setRegularizationRequests(prev => {
+        const next = prev.map(r => r.id === requestId ? updatedRequest : r);
+        if (isDemoSession()) writeDemoData('attendance-regularization', next);
+        return next;
+      });
       
       toast({
         title: "Request rejected",
