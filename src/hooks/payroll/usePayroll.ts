@@ -438,7 +438,32 @@ export const usePayroll = () => {
     setLoading(true);
     try {
       if (demo) {
-        throw new Error('Use an existing seeded profile in demo mode.');
+        const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+        const employees = readDemoData<any[]>('employees', []);
+        const employee = employees.find((item) => String(item.id) === String(input.employee_id) || String(item.employeeId) === String(input.employee_id));
+        const [firstName, ...lastParts] = String(employee?.name || 'Demo Employee').split(/\s+/);
+        const created: SalaryProfile = {
+          id: `SAL-${Date.now()}`,
+          employee_id: input.employee_id,
+          employee: {
+            first_name: firstName || 'Demo',
+            last_name: lastParts.join(' ') || 'Employee',
+            email: employee?.email || 'employee@demo.local',
+            department: employee?.department || 'General',
+            position: employee?.position || 'Employee',
+          },
+          basic_salary: input.basic_salary,
+          currency: input.currency || 'SLE',
+          effective_from: input.effective_from || new Date().toISOString().slice(0, 10),
+          is_active: true,
+          allowances: [],
+          deductions: [],
+        };
+        const next = [created, ...profiles];
+        writeDemoData('salary-profiles', next);
+        setSalaryProfiles(next);
+        toast({ title: 'Salary profile created', description: 'Demo compensation profile saved.' });
+        return created;
       }
 
       const context = await getTenantContext();
