@@ -37,6 +37,7 @@ import EmployeeFilter from '@/components/employees/EmployeeFilter';
 import EmployeeSettings from '@/components/employees/EmployeeSettings';
 import { downloadTextFile, isDemoSession, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
 import { createTenantEmployee, listTenantEmployees } from '@/services/tenantPeople';
+import { sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
 
 type Employee = {
   id: string | number;
@@ -229,6 +230,18 @@ const EmployeeDirectory = () => {
         const imported = rows.slice(1).map((row, index) => {
           const values = row.split(',').map((value) => value.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
           const record = Object.fromEntries(headers.map((header, i) => [header, values[i] || '']));
+          const normalizedRole = String(record.role || 'employee').trim().toLowerCase();
+          const accessRole: EmployeeAccessRole = ['admin', 'hr', 'manager', 'employee'].includes(normalizedRole)
+            ? normalizedRole as EmployeeAccessRole
+            : 'employee';
+          const inviteAccess = ['true', 'yes', '1', 'send', 'invite'].includes(
+            String(record.invite || record.sendInvitation || '').trim().toLowerCase(),
+          );
+
+          if (!String(record.email || '').includes('@')) {
+            throw new Error(`Row ${index + 2} is missing a valid work email.`);
+          }
+
           return {
             id: Number(record.id) || Date.now() + index,
             name: record.name || `Imported Employee ${index + 1}`,
@@ -237,19 +250,24 @@ const EmployeeDirectory = () => {
             department: record.department || 'Unassigned',
             position: record.position || 'Employee',
             location: record.location || 'Remote',
-            status: (record.status || 'Active') as Employee['status'],
+            status: (inviteAccess ? 'Onboarding' : (record.status || 'Active')) as Employee['status'],
             imageUrl: '/placeholder.svg',
             joiningDate: record.joiningDate || new Date().toISOString().split('T')[0],
-          } satisfies Employee;
+            accessRole,
+            inviteAccess,
+          };
         });
         if (isDemoSession()) {
           const next = [...imported, ...employees];
           setEmployees(next);
           writeDemoData('employees', next);
         } else {
+          let invitationsSent = 0;
+          let invitationLinksNeeded = 0;
+
           for (const [index, employee] of imported.entries()) {
             const [firstName, ...lastNameParts] = employee.name.trim().split(/\s+/);
-            await createTenantEmployee({
+            const created = await createTenantEmployee({
               employeeId: `CSV-${Date.now()}-${index + 1}`,
               firstName: firstName || 'Employee',
               lastName: lastNameParts.join(' ') || 'User',
@@ -257,17 +275,34 @@ const EmployeeDirectory = () => {
               department: employee.department,
               location: employee.location || 'Remote',
               designation: employee.position,
-              role: 'employee',
+              role: employee.accessRole,
               employmentType: 'Full-time',
               status: employee.status,
               sourceOfHire: 'CSV Import',
               dateOfJoining: employee.joiningDate,
               workPhone: employee.phone,
             });
+
+            if (employee.inviteAccess) {
+              const invitation = await sendEmployeeInvitation(created.id, employee.accessRole);
+              if (invitation.delivery_status === 'sent') invitationsSent += 1;
+              else invitationLinksNeeded += 1;
+            }
           }
+
           await refreshEmployees();
+
+          if (invitationsSent || invitationLinksNeeded) {
+            toast({
+              title: 'Staff access invitations processed',
+              description: `${invitationsSent} email invitation(s) sent${invitationLinksNeeded ? `; ${invitationLinksNeeded} invitation(s) require a manual link from the Invitations list` : ''}.`,
+            });
+          }
         }
-        toast({ title: 'Import complete', description: `${imported.length} employee record(s) imported.` });
+        toast({
+          title: 'Import complete',
+          description: `${imported.length} employee record(s) imported. Add columns "role" and "invite" (yes/no) to control workspace access in future CSVs.`,
+        });
       } catch (error) {
         toast({ title: 'Import failed', description: error instanceof Error ? error.message : 'Could not read CSV file.', variant: 'destructive' });
       }
