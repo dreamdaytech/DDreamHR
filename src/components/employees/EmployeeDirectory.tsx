@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,10 +35,11 @@ import { useToast } from '@/hooks/use-toast';
 import EmployeeForm from '@/components/employees/EmployeeForm';
 import EmployeeFilter from '@/components/employees/EmployeeFilter';
 import EmployeeSettings from '@/components/employees/EmployeeSettings';
-import { downloadTextFile, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
+import { downloadTextFile, isDemoSession, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
+import { createTenantEmployee, listTenantEmployees } from '@/services/tenantPeople';
 
 type Employee = {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   phone: string;
@@ -164,11 +165,34 @@ const EmployeeDirectory = () => {
   ];
 
   const [employees, setEmployees] = useState<Employee[]>(() => {
+    if (!isDemoSession()) return [];
     const stored = readDemoData<Employee[]>('employees', []);
     if (stored.length) return stored;
     writeDemoData('employees', seedEmployees);
     return seedEmployees;
   });
+
+  const refreshEmployees = async () => {
+    if (isDemoSession()) {
+      setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
+      return;
+    }
+
+    try {
+      const rows = await listTenantEmployees();
+      setEmployees(rows as Employee[]);
+    } catch (error) {
+      toast({
+        title: 'Could not load employees',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    void refreshEmployees();
+  }, []);
 
   const statusFilters: StatusFilter[] = ['All', 'Active', 'Inactive', 'Onboarding', 'On Leave', 'Probation', 'Terminated'];
 
@@ -186,7 +210,7 @@ const EmployeeDirectory = () => {
     return matchesSearch && matchesStatus && matchesDepartment;
   });
 
-  const handleViewEmployee = (id: number) => {
+  const handleViewEmployee = (id: string | number) => {
     navigate(`/employees/${id}`);
   };
 
@@ -218,9 +242,31 @@ const EmployeeDirectory = () => {
             joiningDate: record.joiningDate || new Date().toISOString().split('T')[0],
           } satisfies Employee;
         });
-        const next = [...imported, ...employees];
-        setEmployees(next);
-        writeDemoData('employees', next);
+        if (isDemoSession()) {
+          const next = [...imported, ...employees];
+          setEmployees(next);
+          writeDemoData('employees', next);
+        } else {
+          for (const [index, employee] of imported.entries()) {
+            const [firstName, ...lastNameParts] = employee.name.trim().split(/\s+/);
+            await createTenantEmployee({
+              employeeId: `CSV-${Date.now()}-${index + 1}`,
+              firstName: firstName || 'Employee',
+              lastName: lastNameParts.join(' ') || 'User',
+              email: employee.email,
+              department: employee.department,
+              location: employee.location || 'Remote',
+              designation: employee.position,
+              role: 'employee',
+              employmentType: 'Full-time',
+              status: employee.status,
+              sourceOfHire: 'CSV Import',
+              dateOfJoining: employee.joiningDate,
+              workPhone: employee.phone,
+            });
+          }
+          await refreshEmployees();
+        }
         toast({ title: 'Import complete', description: `${imported.length} employee record(s) imported.` });
       } catch (error) {
         toast({ title: 'Import failed', description: error instanceof Error ? error.message : 'Could not read CSV file.', variant: 'destructive' });
@@ -451,7 +497,7 @@ const EmployeeDirectory = () => {
                 <EmployeeForm
                   onSaved={() => {
                     setShowEmployeeForm(false);
-                    setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
+                    void refreshEmployees();
                   }}
                   onCancel={() => setShowEmployeeForm(false)}
                 />
