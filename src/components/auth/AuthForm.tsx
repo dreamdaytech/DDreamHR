@@ -89,6 +89,8 @@ const AuthForm = () => {
         
         if (loggedInUser.role !== 'super_admin' && !loggedInUser.businessId) {
           navigate('/setup');
+        } else if (loggedInUser.lifecycleState === 'onboarding' || loggedInUser.lifecycleState === 'preboarding') {
+          navigate('/hr-lifecycle/portal');
         } else if (loggedInUser.role === 'super_admin') {
           navigate('/super-admin/dashboard');
         } else if (loggedInUser.role === 'admin') {
