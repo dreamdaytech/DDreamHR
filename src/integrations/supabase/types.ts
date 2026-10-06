@@ -3529,6 +3529,18 @@ export type Database = {
         Args: { target_period_id: string }
         Returns: Json
       }
+      resubmit_workflow_request: {
+        Args: { target_workflow_id: string }
+        Returns: undefined
+      }
+      route_workflow_to_inbox: {
+        Args: {
+          preferred_assignee_role?: string
+          preferred_assignee_user_id?: string
+          target_workflow_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
