@@ -480,9 +480,10 @@ export type Database = {
           employee_id: string
           expires_at: string
           id: string
-          invited_by: string | null
+          invited_by: string
           last_sent_at: string | null
           metadata: Json
+          requires_password: boolean
           role: string
           status: string
           token_hash: string
@@ -500,9 +501,10 @@ export type Database = {
           employee_id: string
           expires_at?: string
           id?: string
-          invited_by?: string | null
+          invited_by: string
           last_sent_at?: string | null
           metadata?: Json
+          requires_password?: boolean
           role: string
           status?: string
           token_hash: string
@@ -520,9 +522,10 @@ export type Database = {
           employee_id?: string
           expires_at?: string
           id?: string
-          invited_by?: string | null
+          invited_by?: string
           last_sent_at?: string | null
           metadata?: Json
+          requires_password?: boolean
           role?: string
           status?: string
           token_hash?: string
