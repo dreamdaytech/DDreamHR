@@ -3506,6 +3506,7 @@ export type Database = {
           users: number
         }[]
       }
+      get_my_tenant_context: { Args: never; Returns: Json }
       get_recent_super_admin_activities: {
         Args: never
         Returns: {
@@ -3524,6 +3525,10 @@ export type Database = {
         }[]
       }
       get_super_admin_dashboard_metrics: { Args: never; Returns: Json }
+      process_payroll_period: {
+        Args: { target_period_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
