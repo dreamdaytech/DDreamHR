@@ -77,3 +77,57 @@ export const roleHome = (role?: string) => {
   if (role === 'super_admin') return '/super-admin/dashboard';
   return '/employee/dashboard';
 };
+
+
+export const listEmployeeInvitations = async () => {
+  const { data, error } = await supabase
+    .from('business_invitations')
+    .select(`
+      id,
+      employee_id,
+      email,
+      role,
+      status,
+      delivery_status,
+      delivery_error,
+      expires_at,
+      last_sent_at,
+      accepted_at,
+      created_at,
+      employees!inner(first_name,last_name,employee_id_number,department,position)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => {
+    const employee = Array.isArray(row.employees) ? row.employees[0] : row.employees;
+    return {
+      id: row.id as string,
+      employeeId: row.employee_id as string,
+      employeeName: `${employee?.first_name || ''} ${employee?.last_name || ''}`.trim(),
+      employeeNumber: employee?.employee_id_number || '',
+      department: employee?.department || 'General',
+      position: employee?.position || 'Employee',
+      email: row.email as string,
+      role: row.role as EmployeeAccessRole,
+      status: row.status as 'pending' | 'accepted' | 'revoked' | 'expired',
+      deliveryStatus: row.delivery_status as 'pending' | 'sent' | 'link_only' | 'failed',
+      deliveryError: row.delivery_error as string | null,
+      expiresAt: row.expires_at as string,
+      lastSentAt: row.last_sent_at as string | null,
+      acceptedAt: row.accepted_at as string | null,
+      createdAt: row.created_at as string,
+    };
+  });
+};
+
+export const revokeEmployeeInvitation = async (invitationId: string) => {
+  const { error } = await supabase
+    .from('business_invitations')
+    .update({ status: 'revoked' })
+    .eq('id', invitationId)
+    .eq('status', 'pending');
+
+  if (error) throw error;
+};
