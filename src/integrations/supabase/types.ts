@@ -467,6 +467,98 @@ export type Database = {
           },
         ]
       }
+      business_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          auth_user_existed: boolean
+          business_id: string
+          created_at: string
+          delivery_error: string | null
+          delivery_status: string
+          email: string
+          employee_id: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          last_sent_at: string | null
+          metadata: Json
+          role: string
+          status: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          auth_user_existed?: boolean
+          business_id: string
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          email: string
+          employee_id: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          last_sent_at?: string | null
+          metadata?: Json
+          role: string
+          status?: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          auth_user_existed?: boolean
+          business_id?: string
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          email?: string
+          employee_id?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          last_sent_at?: string | null
+          metadata?: Json
+          role?: string
+          status?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_invitations_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "business_invitations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_invitations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       business_management_log: {
         Row: {
           action: string
@@ -3498,6 +3590,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_employee_invitation: {
+        Args: { invitation_token: string }
+        Returns: Json
+      }
       get_business_growth_data: {
         Args: never
         Returns: {
@@ -3525,8 +3621,35 @@ export type Database = {
         }[]
       }
       get_super_admin_dashboard_metrics: { Args: never; Returns: Json }
+      lookup_auth_user_for_invitation: {
+        Args: { target_email: string }
+        Returns: string
+      }
+      preview_employee_invitation: {
+        Args: { invitation_token: string }
+        Returns: Json
+      }
       process_payroll_period: {
         Args: { target_period_id: string }
+        Returns: Json
+      }
+      register_business_tenant: {
+        Args: {
+          business_company_size: string
+          business_country: string
+          business_entity_type: string
+          business_industry: string
+          business_name: string
+          business_phone?: string
+          business_slug: string
+          business_timezone: string
+          leave_year_start: number
+          payroll_frequency: string
+          payroll_pay_day: number
+          selected_plan: string
+          work_end: string
+          work_start: string
+        }
         Returns: Json
       }
       resubmit_workflow_request: {
