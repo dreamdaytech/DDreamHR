@@ -26,6 +26,26 @@ const sha256Hex = async (value: string) => {
     .join("");
 };
 
+const resolvePublishableKey = () => {
+  const legacyAnon = Deno.env.get("SUPABASE_ANON_KEY");
+  if (legacyAnon) return legacyAnon;
+
+  const directPublishable = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  if (directPublishable) return directPublishable;
+
+  const publishableMap = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+  if (!publishableMap) return "";
+
+  try {
+    const parsed = JSON.parse(publishableMap) as Record<string, string>;
+    const defaultValue = parsed.default;
+    if (!defaultValue) return "";
+    return Deno.env.get(defaultValue) || (defaultValue.startsWith("sb_publishable_") ? defaultValue : "");
+  } catch {
+    return "";
+  }
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -35,14 +55,14 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const publishableKey = resolvePublishableKey();
     const authHeader = req.headers.get("Authorization") ?? "";
 
-    if (!supabaseUrl || !serviceRoleKey || !anonKey || !authHeader) {
+    if (!supabaseUrl || !serviceRoleKey || !publishableKey || !authHeader) {
       return json({ error: "Function environment is not configured" }, 500);
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
+    const userClient = createClient(supabaseUrl, publishableKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -161,7 +181,7 @@ Deno.serve(async (req: Request) => {
     let deliveryError: string | null = null;
 
     if (existingUserId) {
-      const existingClient = createClient(supabaseUrl, anonKey, {
+      const existingClient = createClient(supabaseUrl, publishableKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const { error: magicLinkError } = await existingClient.auth.signInWithOtp({
