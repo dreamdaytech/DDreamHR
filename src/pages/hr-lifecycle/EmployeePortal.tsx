@@ -42,10 +42,16 @@ const EmployeePortal = () => {
       const result = await completeMyOnboardingItem(taskId);
       await refresh();
       toast({
-        title: result.completed ? 'Onboarding completed' : 'Task completed',
+        title: result.completed
+          ? 'Onboarding completed'
+          : result.activated
+            ? 'Required onboarding completed'
+            : 'Task completed',
         description: result.completed
-          ? 'Your employee lifecycle is now Active.'
-          : `Onboarding is ${Math.round(result.completion_percentage)}% complete.`,
+          ? 'All onboarding items are complete.'
+          : result.activated
+            ? 'Your employee lifecycle is now Active. Optional onboarding items can still be completed.'
+            : `Onboarding is ${Math.round(result.completion_percentage)}% complete.`,
       });
     } catch (error) {
       toast({
@@ -83,6 +89,7 @@ const EmployeePortal = () => {
 
   const completed = new Set(onboarding.completedItems);
   const allDone = onboarding.completionPercentage >= 100 || Boolean(onboarding.completedAt);
+  const requiredComplete = onboarding.lifecycleState === 'active';
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
@@ -109,18 +116,32 @@ const EmployeePortal = () => {
         </CardContent>
       </Card>
 
-      {allDone ? (
+      {allDone && (
         <Card className="border-green-500/30 bg-green-500/5">
           <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
             <PartyPopper className="h-10 w-10 text-green-600" />
             <div>
               <h2 className="text-xl font-semibold">Onboarding complete</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Your employee lifecycle has been moved to Active and your DDreamHR workspace is ready.</p>
+              <p className="mt-1 text-sm text-muted-foreground">All assigned onboarding items are complete and your DDreamHR workspace is ready.</p>
             </div>
             <Button asChild><Link to={roleHome(user?.role)}>Continue to dashboard</Link></Button>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {!allDone && requiredComplete && (
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-green-700 dark:text-green-400">Required onboarding complete</h2>
+              <p className="mt-1 text-sm text-muted-foreground">You are now an Active employee. You can continue to your dashboard and finish any optional items later.</p>
+            </div>
+            <Button asChild><Link to={roleHome(user?.role)}>Continue to dashboard</Link></Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!allDone && (
         <div className="space-y-3">
           {onboarding.tasks.map((task) => {
             const isComplete = completed.has(task.id);
