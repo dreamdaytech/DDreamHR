@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { getTenantContext } from '@/hooks/useTenantContext';
 
 export interface PayrollPeriod {
   id: string;
@@ -170,7 +171,13 @@ export const usePayroll = () => {
       return;
     }
     try {
-      const { data, error } = await supabase.from('payroll_periods').select('*').order('created_at', { ascending: false });
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
+      const { data, error } = await supabase
+        .from('payroll_periods')
+        .select('*')
+        .eq('business_id', context.businessId)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setPayrollPeriods(data || []);
     } catch (error) {
@@ -185,6 +192,8 @@ export const usePayroll = () => {
       return;
     }
     try {
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
       const { data, error } = await supabase
         .from('employee_salary_profiles')
         .select(`
@@ -193,6 +202,7 @@ export const usePayroll = () => {
           salary_allowances (id, name, allowance_type, amount, is_taxable, is_active),
           salary_deductions (id, name, deduction_type, amount, percentage, is_mandatory, is_active)
         `)
+        .eq('business_id', context.businessId)
         .eq('is_active', true);
       if (error) throw error;
       setSalaryProfiles((data || []).map((profile) => ({
@@ -268,9 +278,25 @@ export const usePayroll = () => {
       return;
     }
     try {
-      const { count: totalEmployees } = await supabase.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      const { data: periods } = await supabase.from('payroll_periods').select('status, total_amount, total_employees');
-      const { data: recentRecords } = await supabase.from('payroll_records').select('payment_status').gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
+      const { count: totalEmployees } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', context.businessId)
+        .eq('status', 'active');
+      const { data: periods } = await supabase
+        .from('payroll_periods')
+        .select('id,status,total_amount,total_employees')
+        .eq('business_id', context.businessId);
+      const periodIds = (periods || []).map((period) => period.id);
+      const { data: recentRecords } = periodIds.length
+        ? await supabase
+            .from('payroll_records')
+            .select('payment_status')
+            .in('payroll_period_id', periodIds)
+            .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        : { data: [] as Array<{ payment_status: string }> };
       setPayrollSummary({
         totalEmployees: totalEmployees || 0,
         paidEmployees: recentRecords?.filter((record) => record.payment_status === 'processed').length || 0,
@@ -306,7 +332,14 @@ export const usePayroll = () => {
         return created;
       }
 
-      const { data, error } = await supabase.from('payroll_periods').insert([periodData]).select().single();
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const { data, error } = await supabase
+        .from('payroll_periods')
+        .insert([{ ...periodData, business_id: context.businessId }])
+        .select()
+        .single();
       if (error) throw error;
       await fetchPayrollPeriods();
       toast({ title: 'Success', description: 'Payroll period created successfully' });
@@ -336,9 +369,20 @@ export const usePayroll = () => {
         return;
       }
 
-      await supabase.from('payroll_periods').update({ status: 'in_progress' }).eq('id', periodId);
-      toast({ title: 'Success', description: 'Payroll processing started' });
-      await fetchPayrollPeriods();
+      const { data, error } = await (supabase as any).rpc('process_payroll_period', {
+        target_period_id: periodId,
+      });
+      if (error) throw error;
+
+      await Promise.all([
+        fetchPayrollPeriods(),
+        fetchPayrollRecords(periodId),
+        calculatePayrollSummary(),
+      ]);
+      toast({
+        title: 'Payroll processed',
+        description: `${data?.employees ?? 0} employee payroll record(s) completed successfully.`,
+      });
     } catch (error) {
       console.error('Error processing payroll:', error);
       toast({ title: 'Error', description: 'Failed to process payroll', variant: 'destructive' });
@@ -359,13 +403,72 @@ export const usePayroll = () => {
         return;
       }
 
-      const { error } = await supabase.from('employee_salary_profiles').update(updates).eq('id', profileId);
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const allowedUpdates = {
+        basic_salary: updates.basic_salary,
+        currency: updates.currency,
+        effective_from: updates.effective_from,
+        effective_to: updates.effective_to,
+        is_active: updates.is_active,
+      };
+      const { error } = await supabase
+        .from('employee_salary_profiles')
+        .update(allowedUpdates)
+        .eq('business_id', context.businessId)
+        .eq('id', profileId);
       if (error) throw error;
       await fetchSalaryProfiles();
       toast({ title: 'Success', description: 'Salary profile updated successfully' });
     } catch (error) {
       console.error('Error updating salary profile:', error);
       toast({ title: 'Error', description: 'Failed to update salary profile', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createSalaryProfile = async (input: {
+    employee_id: string;
+    basic_salary: number;
+    currency?: string;
+    effective_from?: string;
+  }) => {
+    setLoading(true);
+    try {
+      if (demo) {
+        throw new Error('Use an existing seeded profile in demo mode.');
+      }
+
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const { data, error } = await supabase
+        .from('employee_salary_profiles')
+        .insert({
+          business_id: context.businessId,
+          employee_id: input.employee_id,
+          basic_salary: input.basic_salary,
+          currency: input.currency || 'SLE',
+          effective_from: input.effective_from || new Date().toISOString().slice(0, 10),
+          is_active: true,
+          created_by: context.userId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      await fetchSalaryProfiles();
+      toast({ title: 'Salary profile created', description: 'Compensation is now available for payroll.' });
+      return data;
+    } catch (error) {
+      toast({
+        title: 'Could not create salary profile',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -388,6 +491,7 @@ export const usePayroll = () => {
     fetchSalaryProfiles,
     createPayrollPeriod,
     processPayroll,
+    createSalaryProfile,
     updateSalaryProfile,
     calculatePayrollSummary,
   };
