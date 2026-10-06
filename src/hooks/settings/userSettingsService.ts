@@ -138,15 +138,18 @@ export class UserSettingsService {
     try {
       console.log('Updating user profile:', { profileData, targetUserId });
 
+      const allowedProfileData = {
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        phone: profileData.phone,
+        avatar_url: profileData.avatar_url,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: targetUserId,
-          ...profileData,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
-        });
+        .update(allowedProfileData)
+        .eq('user_id', targetUserId);
 
       if (error) {
         console.error('Error updating user profile:', error);
