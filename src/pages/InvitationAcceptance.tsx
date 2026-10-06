@@ -174,7 +174,7 @@ const InvitationAcceptance = () => {
               <div className="flex items-start gap-3"><Mail className="mt-0.5 h-5 w-5 text-primary" /><div><p className="font-medium">Sign in to continue</p><p className="text-sm text-muted-foreground">Use {preview.email}. Existing DDreamHR users can request a one-time sign-in link.</p></div></div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button onClick={emailSignInLink}>Email me a sign-in link</Button>
-                <Button variant="outline" asChild><Link to="/login">Sign in with password</Link></Button>
+                <Button variant="outline" asChild><Link to={`/login?returnTo=${encodeURIComponent(`/invite/${token}`)}`}>Sign in with password</Link></Button>
               </div>
             </div>
           )}
