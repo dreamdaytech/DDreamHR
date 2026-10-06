@@ -4,6 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 import { ArrowRight, CalendarClock, CircleCheck, Clock3, RefreshCw, UserRound } from 'lucide-react';
 
 type ChangeStatus = 'pending' | 'approved' | 'scheduled' | 'completed';
@@ -21,13 +28,13 @@ type EmployeeChange = {
   approvals: string[];
 };
 
-const changes: EmployeeChange[] = [
+const seedChanges: EmployeeChange[] = [
   {
     id: 'CHG-1042',
     employee: 'Aminata Kamara',
     employeeId: '1',
     type: 'Promotion',
-    effectiveDate: '01 Nov 2026',
+    effectiveDate: '2026-11-01',
     oldValue: 'Finance Analyst',
     newValue: 'Senior Finance Analyst',
     reason: 'Annual promotion cycle',
@@ -39,7 +46,7 @@ const changes: EmployeeChange[] = [
     employee: 'Joseph Conteh',
     employeeId: '1',
     type: 'Manager Change',
-    effectiveDate: '15 Oct 2026',
+    effectiveDate: '2026-10-15',
     oldValue: 'Mariama Sesay',
     newValue: 'Fatmata Cole',
     reason: 'Team restructure',
@@ -51,7 +58,7 @@ const changes: EmployeeChange[] = [
     employee: 'Hawa Koroma',
     employeeId: '1',
     type: 'Salary Change',
-    effectiveDate: '01 Nov 2026',
+    effectiveDate: '2026-11-01',
     oldValue: 'SLE 8,500 / month',
     newValue: 'SLE 10,000 / month',
     reason: 'Market adjustment',
@@ -63,7 +70,7 @@ const changes: EmployeeChange[] = [
     employee: 'Abdul Bangura',
     employeeId: '1',
     type: 'Department Transfer',
-    effectiveDate: '01 Oct 2026',
+    effectiveDate: '2026-10-01',
     oldValue: 'Operations',
     newValue: 'Customer Success',
     reason: 'Internal transfer',
@@ -80,8 +87,71 @@ const statusMeta: Record<ChangeStatus, { label: string; icon: typeof Clock3 }> =
 };
 
 const EmployeeChanges = () => {
+  const { toast } = useToast();
   const [tab, setTab] = useState<ChangeStatus | 'all'>('all');
-  const filtered = useMemo(() => tab === 'all' ? changes : changes.filter((change) => change.status === tab), [tab]);
+  const [changes, setChanges] = useState<EmployeeChange[]>(() => readDemoData('employee-changes', seedChanges));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draft, setDraft] = useState({
+    employee: '',
+    employeeId: '1',
+    type: 'Promotion',
+    effectiveDate: '',
+    oldValue: '',
+    newValue: '',
+    reason: '',
+  });
+
+  const filtered = useMemo(
+    () => (tab === 'all' ? changes : changes.filter((change) => change.status === tab)),
+    [changes, tab],
+  );
+
+  const saveChanges = (next: EmployeeChange[]) => {
+    setChanges(next);
+    writeDemoData('employee-changes', next);
+  };
+
+  const createChange = () => {
+    if (!draft.employee.trim() || !draft.effectiveDate || !draft.oldValue.trim() || !draft.newValue.trim() || !draft.reason.trim()) {
+      toast({
+        title: 'Complete the change request',
+        description: 'Employee, effective date, before/after values and reason are required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newChange: EmployeeChange = {
+      id: `CHG-${Date.now().toString().slice(-6)}`,
+      employee: draft.employee.trim(),
+      employeeId: draft.employeeId.trim() || '1',
+      type: draft.type,
+      effectiveDate: draft.effectiveDate,
+      oldValue: draft.oldValue.trim(),
+      newValue: draft.newValue.trim(),
+      reason: draft.reason.trim(),
+      status: 'pending',
+      approvals: ['Manager pending', 'HR pending'],
+    };
+
+    saveChanges([newChange, ...changes]);
+    setDialogOpen(false);
+    setDraft({ employee: '', employeeId: '1', type: 'Promotion', effectiveDate: '', oldValue: '', newValue: '', reason: '' });
+    setTab('pending');
+    toast({ title: 'Employee change created', description: `${newChange.id} is now awaiting approval.` });
+  };
+
+  const advanceStatus = (id: string) => {
+    const next = changes.map((change) => {
+      if (change.id !== id) return change;
+      if (change.status === 'pending') return { ...change, status: 'approved' as const, approvals: ['Manager ✓', 'HR ✓'] };
+      if (change.status === 'approved') return { ...change, status: 'scheduled' as const };
+      if (change.status === 'scheduled') return { ...change, status: 'completed' as const };
+      return change;
+    });
+    saveChanges(next);
+    toast({ title: 'Change updated', description: 'The employee change moved to its next workflow stage.' });
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -93,7 +163,7 @@ const EmployeeChanges = () => {
             Effective-dated employment events with approvals and history.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setDialogOpen(true)}>
           <RefreshCw className="mr-2 h-4 w-4" />
           New change
         </Button>
@@ -164,13 +234,20 @@ const EmployeeChanges = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <p className="mb-2 text-sm font-medium">Approval progress</p>
-                    <div className="flex flex-wrap gap-2">
-                      {change.approvals.map((approval) => (
-                        <Badge key={approval} variant="secondary">{approval}</Badge>
-                      ))}
+                  <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="mb-2 text-sm font-medium">Approval progress</p>
+                      <div className="flex flex-wrap gap-2">
+                        {change.approvals.map((approval) => (
+                          <Badge key={approval} variant="secondary">{approval}</Badge>
+                        ))}
+                      </div>
                     </div>
+                    {change.status !== 'completed' && (
+                      <Button variant="outline" size="sm" onClick={() => advanceStatus(change.id)}>
+                        {change.status === 'pending' ? 'Approve' : change.status === 'approved' ? 'Schedule' : 'Mark completed'}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -178,6 +255,51 @@ const EmployeeChanges = () => {
           })}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Create employee change</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="change-employee">Employee</Label>
+              <Input id="change-employee" value={draft.employee} onChange={(e) => setDraft({ ...draft, employee: e.target.value })} placeholder="Employee name" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Change type</Label>
+              <Select value={draft.type} onValueChange={(type) => setDraft({ ...draft, type })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Promotion">Promotion</SelectItem>
+                  <SelectItem value="Salary Change">Salary Change</SelectItem>
+                  <SelectItem value="Department Transfer">Department Transfer</SelectItem>
+                  <SelectItem value="Manager Change">Manager Change</SelectItem>
+                  <SelectItem value="Employment Type Change">Employment Type Change</SelectItem>
+                  <SelectItem value="Termination">Termination</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="change-date">Effective date</Label>
+              <Input id="change-date" type="date" value={draft.effectiveDate} onChange={(e) => setDraft({ ...draft, effectiveDate: e.target.value })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="change-before">Before</Label>
+                <Input id="change-before" value={draft.oldValue} onChange={(e) => setDraft({ ...draft, oldValue: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="change-after">After</Label>
+                <Input id="change-after" value={draft.newValue} onChange={(e) => setDraft({ ...draft, newValue: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="change-reason">Reason</Label>
+              <Textarea id="change-reason" value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} />
+            </div>
+            <Button onClick={createChange}>Create change request</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
