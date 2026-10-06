@@ -248,18 +248,30 @@ export const createEmployeeChange = async (draft: any) => {
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
   let employeeId = draft.employeeId;
-  if (!employeeId || !String(employeeId).includes('-')) {
-    const { data: employee, error } = await supabase
+  if (!employeeId || !/^[0-9a-f-]{36}$/i.test(String(employeeId))) {
+    const employeeName = String(draft.employee || '').trim();
+    const [firstName, ...lastParts] = employeeName.split(/\s+/);
+    let query = supabase
       .from('employees')
       .select('id')
-      .eq('business_id', context.businessId)
-      .ilike('email', draft.employeeEmail || '')
-      .maybeSingle();
+      .eq('business_id', context.businessId);
+
+    if (draft.employeeId && draft.employeeId !== '1') {
+      query = query.eq('employee_id_number', String(draft.employeeId));
+    } else if (draft.employeeEmail) {
+      query = query.ilike('email', String(draft.employeeEmail));
+    } else if (employeeName) {
+      query = lastParts.length
+        ? query.ilike('first_name', `%${firstName}%`).ilike('last_name', `%${lastParts.join(' ')}%`)
+        : query.or(`first_name.ilike.%${firstName}%,last_name.ilike.%${firstName}%`);
+    }
+
+    const { data: employee, error } = await query.limit(1).maybeSingle();
     if (error) throw error;
-    employeeId = employee?.id || employeeId;
+    employeeId = employee?.id || null;
   }
 
-  if (!employeeId) throw new Error('Select a valid employee.');
+  if (!employeeId) throw new Error('Select a valid employee from this tenant.');
 
   const { data, error } = await supabase
     .from('employee_changes')
