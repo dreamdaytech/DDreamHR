@@ -165,7 +165,9 @@ const EmployeeDirectory = () => {
 
   const [employees, setEmployees] = useState<Employee[]>(() => {
     const stored = readDemoData<Employee[]>('employees', []);
-    return stored.length ? stored : seedEmployees;
+    if (stored.length) return stored;
+    writeDemoData('employees', seedEmployees);
+    return seedEmployees;
   });
 
   const statusFilters: StatusFilter[] = ['All', 'Active', 'Inactive', 'Onboarding', 'On Leave', 'Probation', 'Terminated'];
