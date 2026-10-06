@@ -315,19 +315,13 @@ export const createEmployeeChange = async (draft: any) => {
 
   if (workflowError) throw workflowError;
 
-  const { error: workItemError } = await supabase.from('work_items').insert({
-    business_id: context.businessId,
-    assignee_role: 'hr',
-    category: 'employee_change',
-    source_type: 'workflow_request',
-    source_id: workflow.id,
-    title: 'Employee change approval',
-    description: `${draft.type}: ${draft.employee || 'Employee'} · effective ${draft.effectiveDate}`,
-    status: 'open',
-    priority: 'normal',
+  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+    target_workflow_id: workflow.id,
+    preferred_assignee_user_id: null,
+    preferred_assignee_role: 'hr',
   });
 
-  if (workItemError) throw workItemError;
+  if (routeError) throw routeError;
 
   return data;
 };
