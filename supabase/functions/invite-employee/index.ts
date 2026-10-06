@@ -159,14 +159,18 @@ Deno.serve(async (req: Request) => {
     const tokenHash = await sha256Hex(invitationToken);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const originHeader = req.headers.get("Origin");
-    let siteUrl = String(body.site_url || originHeader || "https://ddreamhr.onrender.com").replace(/\/$/, "");
+    const productionSite = "https://ddreamhr.onrender.com";
+    const requestedOrigin = String(body.site_url || req.headers.get("Origin") || productionSite).replace(/\/$/, "");
+    let siteUrl = productionSite;
     try {
-      const parsed = new URL(siteUrl);
-      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("invalid protocol");
-      siteUrl = parsed.origin;
+      const parsed = new URL(requestedOrigin);
+      const isLocal = ["localhost", "127.0.0.1"].includes(parsed.hostname);
+      const isProduction = parsed.origin === productionSite;
+      if (isProduction || (isLocal && ["http:", "https:"].includes(parsed.protocol))) {
+        siteUrl = parsed.origin;
+      }
     } catch {
-      siteUrl = "https://ddreamhr.onrender.com";
+      siteUrl = productionSite;
     }
     const inviteUrl = `${siteUrl}/invite/${invitationToken}`;
 
