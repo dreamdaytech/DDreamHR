@@ -7,6 +7,7 @@ import { UserSettingsService } from './settings/userSettingsService';
 import { SystemSettingsService } from './settings/systemSettingsService';
 import { setupRealtimeSubscriptions } from './settings/realtimeSubscriptions';
 import type { UserSettings, SystemSettings, UserProfile, UserSettingsData } from './settings/types';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
 
 export const useSettings = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export const useSettings = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const demo = isDemoSession();
 
   // Get current user's role for access control
   const hasAdminAccess = user?.role === 'admin';
@@ -37,6 +39,11 @@ export const useSettings = () => {
       return;
     }
     
+    if (demo) {
+      setUserSettings(readDemoData<UserSettings[]>(`user-settings:${targetUserId}`, []));
+      return;
+    }
+
     const data = await userSettingsService.fetchUserSettings(String(targetUserId));
     setUserSettings(data);
   };
@@ -49,11 +56,20 @@ export const useSettings = () => {
       return;
     }
     
+    if (demo) {
+      setUserProfile(readDemoData<UserProfile | null>(`user-profile:${targetUserId}`, null));
+      return;
+    }
+
     const data = await userSettingsService.fetchUserProfile(String(targetUserId));
     setUserProfile(data);
   };
 
   const fetchSystemSettings = async () => {
+    if (demo) {
+      setSystemSettings(readDemoData<SystemSettings[]>('system-settings', []));
+      return;
+    }
     const data = await systemSettingsService.fetchSystemSettings(hasAdminAccess);
     setSystemSettings(data);
   };
@@ -69,6 +85,26 @@ export const useSettings = () => {
       const targetUserId = userId || user?.id;
       if (!targetUserId) {
         throw new Error('User authentication required');
+      }
+
+      if (demo) {
+        const current = readDemoData<any[]>(`user-settings:${targetUserId}`, []);
+        const existingIndex = current.findIndex((item) => item.settings_type === settingsType);
+        const record = {
+          id: existingIndex >= 0 ? current[existingIndex].id : `demo-user-setting-${Date.now()}`,
+          user_id: String(targetUserId),
+          settings_type: settingsType,
+          settings_data: settingsData,
+          created_at: existingIndex >= 0 ? current[existingIndex].created_at : new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const next = existingIndex >= 0
+          ? current.map((item, index) => index === existingIndex ? record : item)
+          : [record, ...current];
+        writeDemoData(`user-settings:${targetUserId}`, next);
+        setUserSettings(next as UserSettings[]);
+        toast({ title: 'Success', description: 'Settings saved in the demo workspace' });
+        return true;
       }
 
       const success = await userSettingsService.saveUserSettings(
@@ -103,6 +139,29 @@ export const useSettings = () => {
       const targetUserId = user?.id;
       if (!targetUserId) {
         throw new Error('User authentication required');
+      }
+
+      if (demo) {
+        const current = readDemoData<any[]>('system-settings', []);
+        const existingIndex = current.findIndex((item) => item.setting_key === settingKey);
+        const record = {
+          id: existingIndex >= 0 ? current[existingIndex].id : `demo-system-setting-${Date.now()}`,
+          setting_key: settingKey,
+          setting_value: settingValue,
+          category,
+          description: description || null,
+          is_public: false,
+          created_by: String(targetUserId),
+          created_at: existingIndex >= 0 ? current[existingIndex].created_at : new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const next = existingIndex >= 0
+          ? current.map((item, index) => index === existingIndex ? record : item)
+          : [record, ...current];
+        writeDemoData('system-settings', next);
+        setSystemSettings(next as SystemSettings[]);
+        toast({ title: 'Success', description: 'System setting saved in the demo workspace' });
+        return true;
       }
 
       const success = await systemSettingsService.saveSystemSetting(
@@ -140,6 +199,15 @@ export const useSettings = () => {
         throw new Error('User authentication required');
       }
 
+      if (demo) {
+        const current = readDemoData<any>(`user-profile:${targetUserId}`, {});
+        const next = { ...current, ...profileData, user_id: String(targetUserId), updated_at: new Date().toISOString() };
+        writeDemoData(`user-profile:${targetUserId}`, next);
+        setUserProfile(next as UserProfile);
+        toast({ title: 'Success', description: 'Profile updated in the demo workspace' });
+        return true;
+      }
+
       const success = await userSettingsService.updateUserProfile(
         profileData,
         String(targetUserId)
@@ -175,6 +243,11 @@ export const useSettings = () => {
   // Load system settings function
   const loadSystemSettings = async () => {
     try {
+      if (demo) {
+        const data = readDemoData<SystemSettings[]>('system-settings', []);
+        setSystemSettings(data);
+        return data;
+      }
       const data = await systemSettingsService.loadSystemSettings();
       setSystemSettings(data);
       return data;
@@ -191,6 +264,24 @@ export const useSettings = () => {
       const targetUserId = user?.id;
       if (!targetUserId) {
         throw new Error('User authentication required');
+      }
+
+      if (demo) {
+        const next = Object.entries(settings).map(([settingKey, settingValue], index) => ({
+          id: `demo-system-batch-${Date.now()}-${index}`,
+          setting_key: settingKey,
+          setting_value: settingValue,
+          category: 'general',
+          description: null,
+          is_public: false,
+          created_by: String(targetUserId),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+        writeDemoData('system-settings', next);
+        setSystemSettings(next as SystemSettings[]);
+        toast({ title: 'Success', description: 'System settings saved in the demo workspace' });
+        return true;
       }
 
       const success = await systemSettingsService.saveSystemSettings(
@@ -246,7 +337,7 @@ export const useSettings = () => {
 
   // Set up real-time subscriptions with error handling
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || demo) return;
 
     const cleanup = setupRealtimeSubscriptions(
       String(user.id),
