@@ -164,20 +164,13 @@ export const submitLeaveRequest = async (input: {
 
   if (workflowError) throw workflowError;
 
-  const { error: workItemError } = await supabase.from('work_items').insert({
-    business_id: context.businessId,
-    assignee_user_id: manager?.user_id || null,
-    assignee_role: manager?.user_id ? null : 'manager',
-    category: 'leave',
-    source_type: 'workflow_request',
-    source_id: workflow.id,
-    title: 'Leave request approval',
-    description: `${leaveType.name}: ${request.start_date} to ${request.end_date}`,
-    status: 'open',
-    priority: 'normal',
+  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+    target_workflow_id: workflow.id,
+    preferred_assignee_user_id: manager?.user_id || null,
+    preferred_assignee_role: manager?.user_id ? null : 'manager',
   });
 
-  if (workItemError) throw workItemError;
+  if (routeError) throw routeError;
 
   return request;
 };
