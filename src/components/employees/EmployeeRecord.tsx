@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { getTenantEmployee, updateTenantEmployee } from '@/services/tenantPeople';
 import {
   ArrowLeft,
   Briefcase,
@@ -74,6 +75,62 @@ const EmployeeRecord = () => {
     condition: storedEmployee?.status === 'On Leave' ? 'On Leave' : storedEmployee?.status === 'Probation' ? 'Probation' : seedEmployee.condition,
   };
   const [employee, setEmployee] = useState(initialEmployee);
+
+  useEffect(() => {
+    if (isDemoSession() || !id) return;
+
+    void getTenantEmployee(id)
+      .then((row: any) => {
+        const manager = Array.isArray(row.manager) ? row.manager[0] : row.manager;
+        const managerName = manager
+          ? `${manager.first_name || ''} ${manager.last_name || ''}`.trim()
+          : '';
+        const name = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+        const lifecycle = row.lifecycle_state === 'former_employee'
+          ? 'Former Employee'
+          : row.lifecycle_state === 'onboarding'
+            ? 'Onboarding'
+            : row.lifecycle_state === 'preboarding'
+              ? 'Preboarding'
+              : 'Active';
+        const condition = row.employment_condition === 'on_leave'
+          ? 'On Leave'
+          : row.employment_condition === 'probation'
+            ? 'Probation'
+            : row.employment_condition === 'notice_period'
+              ? 'Notice Period'
+              : row.employment_condition === 'suspended'
+                ? 'Suspended'
+                : 'Working';
+
+        const mapped = {
+          ...seedEmployee,
+          id: row.id,
+          name: name || row.email,
+          email: row.email || '',
+          phone: row.phone || '',
+          position: row.position || 'Employee',
+          department: row.department || 'Unassigned',
+          location: row.location || '',
+          manager: managerName,
+          startDate: row.start_date || row.hire_date || '',
+          employmentType: (row.employment_type || 'full_time').replace(/_/g, ' '),
+          lifecycle,
+          condition,
+          imageUrl: row.profile_image_url || '/placeholder.svg',
+        };
+        setEmployee(mapped);
+        setEditDraft({
+          name: mapped.name,
+          position: mapped.position,
+          department: mapped.department,
+          manager: mapped.manager,
+          location: mapped.location,
+        });
+      })
+      .catch((error) => console.error('Failed to load employee record', error));
+  }, [id]);
+
   const [editOpen, setEditOpen] = useState(false);
   const [editDraft, setEditDraft] = useState({
     name: initialEmployee.name,
@@ -83,18 +140,27 @@ const EmployeeRecord = () => {
     location: initialEmployee.location,
   });
 
-  const saveEmployee = () => {
+  const saveEmployee = async () => {
     const nextEmployee = { ...employee, ...editDraft };
-    setEmployee(nextEmployee);
-    if (storedEmployee) {
-      const next = storedEmployees.map((item) =>
-        String(item.id) === String(id)
-          ? { ...item, ...editDraft, reportingManager: editDraft.manager }
-          : item,
-      );
-      writeDemoData('employees', next);
+    try {
+      if (isDemoSession()) {
+        setEmployee(nextEmployee);
+        if (storedEmployee) {
+          const next = storedEmployees.map((item) =>
+            String(item.id) === String(id)
+              ? { ...item, ...editDraft, reportingManager: editDraft.manager }
+              : item,
+          );
+          writeDemoData('employees', next);
+        }
+      } else if (id) {
+        await updateTenantEmployee(id, editDraft);
+        setEmployee(nextEmployee);
+      }
+      setEditOpen(false);
+    } catch (error) {
+      console.error('Failed to update employee', error);
     }
-    setEditOpen(false);
   };
 
   return (
