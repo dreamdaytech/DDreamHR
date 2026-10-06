@@ -25,7 +25,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from 'lucide-react';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { createTenantEmployee } from '@/services/tenantPeople';
 
 const formSchema = z.object({
   employeeId: z.string().min(1, { message: 'Employee ID is required' }),
@@ -138,36 +139,48 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
     'Additional Details'
   ];
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    const existing = readDemoData<any[]>('employees', []);
-    const numericId = Date.now();
-    const employee = {
-      id: numericId,
-      name: `${values.firstName} ${values.lastName}`.trim(),
-      email: values.email,
-      phone: values.workPhone || values.personalMobile || '',
-      department: values.department,
-      position: values.designation,
-      location: values.location,
-      status: values.status,
-      imageUrl: '/placeholder.svg',
-      joiningDate: values.dateOfJoining || new Date().toISOString().split('T')[0],
-      employeeId: values.employeeId,
-      employmentType: values.employmentType,
-      reportingManager: values.reportingManager || '',
-      workExperiences,
-      educations,
-      dependents,
-    };
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      if (isDemoSession()) {
+        const existing = readDemoData<any[]>('employees', []);
+        const numericId = Date.now();
+        const employee = {
+          id: numericId,
+          name: `${values.firstName} ${values.lastName}`.trim(),
+          email: values.email,
+          phone: values.workPhone || values.personalMobile || '',
+          department: values.department,
+          position: values.designation,
+          location: values.location,
+          status: values.status,
+          imageUrl: '/placeholder.svg',
+          joiningDate: values.dateOfJoining || new Date().toISOString().split('T')[0],
+          employeeId: values.employeeId,
+          employmentType: values.employmentType,
+          reportingManager: values.reportingManager || '',
+          workExperiences,
+          educations,
+          dependents,
+        };
+        writeDemoData('employees', [employee, ...existing]);
+      } else {
+        await createTenantEmployee(values, { workExperiences, educations, dependents });
+      }
 
-    writeDemoData('employees', [employee, ...existing]);
-    toast({
-      title: "Employee added successfully",
-      description: `${values.firstName} ${values.lastName} has been added to the demo workspace.`,
-    });
+      toast({
+        title: "Employee added successfully",
+        description: `${values.firstName} ${values.lastName} has been added to DDreamHR.`,
+      });
 
-    if (onSaved) onSaved();
-    else navigate('/employees?view=directory');
+      if (onSaved) onSaved();
+      else navigate('/employees?view=directory');
+    } catch (error) {
+      toast({
+        title: "Could not add employee",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const addWorkExperience = () => {
