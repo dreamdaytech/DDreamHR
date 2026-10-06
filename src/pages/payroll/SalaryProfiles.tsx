@@ -1,6 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePayroll } from '@/hooks/payroll/usePayroll';
+import { listTenantEmployees } from '@/services/tenantPeople';
+import { isDemoSession, readDemoData } from '@/lib/demoStore';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,13 +26,37 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const SalaryProfiles = () => {
-  const { salaryProfiles, loading } = usePayroll();
+  const { salaryProfiles, loading, createSalaryProfile, updateSalaryProfile } = usePayroll();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [editingProfile, setEditingProfile] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [newProfile, setNewProfile] = useState({
+    employee_id: '',
+    basic_salary: '',
+    currency: 'SLE',
+    effective_from: new Date().toISOString().slice(0, 10),
+  });
+
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        if (isDemoSession()) {
+          setEmployees(readDemoData<any[]>('employees', []));
+        } else {
+          setEmployees(await listTenantEmployees());
+        }
+      } catch (error) {
+        console.error('Failed to load employees for payroll', error);
+      }
+    };
+    void loadEmployees();
+  }, []);
 
   const departments = Array.from(new Set(salaryProfiles.map(profile => profile.employee.department)));
 
@@ -45,8 +72,54 @@ const SalaryProfiles = () => {
   });
 
   const handleEditProfile = (profile: any) => {
-    setEditingProfile(profile);
+    setEditingProfile({ ...profile });
     setIsDialogOpen(true);
+  };
+
+  const availableEmployees = employees.filter((employee) =>
+    !salaryProfiles.some((profile) => String(profile.employee_id) === String(employee.id))
+  );
+
+  const handleCreateProfile = async () => {
+    const salary = Number(newProfile.basic_salary);
+    if (!newProfile.employee_id || !Number.isFinite(salary) || salary <= 0) {
+      toast({
+        title: 'Employee and salary required',
+        description: 'Select an employee and enter a valid basic salary.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await createSalaryProfile({
+        employee_id: newProfile.employee_id,
+        basic_salary: salary,
+        currency: newProfile.currency,
+        effective_from: newProfile.effective_from,
+      });
+      setNewProfile({
+        employee_id: '',
+        basic_salary: '',
+        currency: 'SLE',
+        effective_from: new Date().toISOString().slice(0, 10),
+      });
+      setIsAddDialogOpen(false);
+    } catch {
+      // The payroll hook already displays the error.
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editingProfile) return;
+    await updateSalaryProfile(editingProfile.id, {
+      basic_salary: Number(editingProfile.basic_salary),
+      currency: editingProfile.currency,
+      effective_from: editingProfile.effective_from,
+      effective_to: editingProfile.effective_to || undefined,
+      is_active: Boolean(editingProfile.is_active),
+    });
+    setIsDialogOpen(false);
   };
 
   if (loading) {
@@ -69,7 +142,7 @@ const SalaryProfiles = () => {
           <h1 className="text-2xl font-bold tracking-tight">Salary Profiles</h1>
           <p className="text-muted-foreground">Manage employee salary profiles and compensation</p>
         </div>
-        <Button className="bg-[#e86625] hover:bg-[#d55b1f]">
+        <Button className="bg-[#e86625] hover:bg-[#d55b1f]" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Profile
         </Button>
@@ -277,6 +350,71 @@ const SalaryProfiles = () => {
         </CardContent>
       </Card>
 
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Salary Profile</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Employee</Label>
+              <Select value={newProfile.employee_id} onValueChange={(value) => setNewProfile({ ...newProfile, employee_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableEmployees.map((employee) => (
+                    <SelectItem key={employee.id} value={String(employee.id)}>
+                      {employee.name || `${employee.first_name || ''} ${employee.last_name || ''}`.trim()} · {employee.department || 'General'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {availableEmployees.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">All currently loaded employees already have salary profiles.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Basic Salary</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newProfile.basic_salary}
+                  onChange={(e) => setNewProfile({ ...newProfile, basic_salary: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Currency</Label>
+                <Input
+                  value={newProfile.currency}
+                  onChange={(e) => setNewProfile({ ...newProfile, currency: e.target.value.toUpperCase() })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Effective From</Label>
+              <Input
+                type="date"
+                value={newProfile.effective_from}
+                onChange={(e) => setNewProfile({ ...newProfile, effective_from: e.target.value })}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateProfile} disabled={loading || !availableEmployees.length}>
+                {loading ? 'Creating…' : 'Create Profile'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Profile Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -374,12 +512,38 @@ const SalaryProfiles = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <Label>Currency</Label>
+                  <Input
+                    value={editingProfile.currency}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, currency: e.target.value.toUpperCase() })}
+                  />
+                </div>
+                <div>
+                  <Label>Effective From</Label>
+                  <Input
+                    type="date"
+                    value={editingProfile.effective_from || ''}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, effective_from: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Effective To</Label>
+                  <Input
+                    type="date"
+                    value={editingProfile.effective_to || ''}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, effective_to: e.target.value || undefined })}
+                  />
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-3">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button className="bg-[#e86625] hover:bg-[#d55b1f]">
-                  Save Changes
+                <Button className="bg-[#e86625] hover:bg-[#d55b1f]" onClick={handleSaveProfile} disabled={loading}>
+                  {loading ? 'Saving…' : 'Save Changes'}
                 </Button>
               </div>
             </div>
