@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Building2, CheckCircle2, KeyRound, Mail, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   acceptEmployeeInvitation,
   previewEmployeeInvitation,
-  roleHome,
-  sendExistingUserSignInLink,
+    sendExistingUserSignInLink,
   type InvitationPreview,
 } from '@/services/tenantInvitations';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 
 const InvitationAcceptance = () => {
   const { token = '' } = useParams();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [preview, setPreview] = useState<InvitationPreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +110,7 @@ const InvitationAcceptance = () => {
       });
 
       window.setTimeout(() => {
-        window.location.assign(roleHome(result.role));
+        window.location.assign('/hr-lifecycle/portal');
       }, 900);
     } catch (error) {
       toast({
