@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Send } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 
 // Import new components
 import { LeaveTypeSelector } from './components/LeaveTypeSelector';
@@ -19,6 +21,7 @@ import { calculateLeaveDays, validateLeaveForm } from './utils/leaveCalculations
 export const LeaveApplication = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     leaveType: '',
     startDate: undefined as Date | undefined,
@@ -52,9 +55,32 @@ export const LeaveApplication = () => {
       return;
     }
 
+    const selectedType = leaveTypes.find((type) => type.value === formData.leaveType);
+    const request = {
+      id: Date.now(),
+      employee: user?.name || 'Demo Employee',
+      employeeName: user?.name || 'Demo Employee',
+      employeeId: user?.id || 'demo-employee',
+      type: selectedType?.label || formData.leaveType,
+      startDate: formData.startDate!.toISOString().split('T')[0],
+      endDate: (formData.endDate || formData.startDate)!.toISOString().split('T')[0],
+      days: calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay),
+      status: 'pending',
+      appliedDate: new Date().toISOString().split('T')[0],
+      approvedBy: null,
+      reason: formData.reason,
+      documents: formData.documents.map((file) => file.name),
+      currentBalance: selectedType?.balance ?? 15,
+      afterLeaveBalance: Math.max(0, (selectedType?.balance ?? 15) - calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay)),
+      timeline: [{ date: new Date().toISOString().split('T')[0], action: 'Request Submitted', by: user?.name || 'You' }],
+    };
+
+    const existing = readDemoData<any[]>('leave-requests', []);
+    writeDemoData('leave-requests', [request, ...existing]);
+
     toast({
       title: "Leave Request Submitted",
-      description: "Your leave request has been submitted for approval.",
+      description: "Your leave request is now visible in Leave History and manager approvals.",
     });
 
     // Reset form
