@@ -10,7 +10,7 @@ import Preboarding from '@/pages/hr-lifecycle/Preboarding';
 import Onboarding from '@/pages/hr-lifecycle/Onboarding';
 import Offboarding from '@/pages/hr-lifecycle/Offboarding';
 
-const viewValues = ['overview', 'directory', 'new-hires', 'changes', 'offboarding', 'former', 'departments'] as const;
+const viewValues = ['overview', 'directory', 'new-hires', 'changes', 'offboarding', 'former'] as const;
 type PeopleView = typeof viewValues[number];
 
 const Employees = () => {
@@ -38,7 +38,6 @@ const Employees = () => {
               <TabsTrigger value="changes">Employee Changes</TabsTrigger>
               <TabsTrigger value="offboarding">Offboarding</TabsTrigger>
               <TabsTrigger value="former">Former Employees</TabsTrigger>
-              <TabsTrigger value="departments">Departments</TabsTrigger>
             </TabsList>
           </div>
 
@@ -77,19 +76,6 @@ const Employees = () => {
             <FormerEmployees />
           </TabsContent>
 
-          <TabsContent value="departments" className="mt-0">
-            <div className="space-y-4 sm:space-y-6 animate-fade-in">
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Department Management</h1>
-              <p className="text-sm text-muted-foreground sm:text-base">
-                Manage your organization's departments here.
-              </p>
-              <div className="flex h-32 items-center justify-center rounded-lg border bg-muted/40">
-                <p className="px-4 text-center text-sm text-muted-foreground sm:text-base">
-                  Department management UI will be available soon.
-                </p>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
     </div>
