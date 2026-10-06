@@ -1,331 +1,163 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Building2, 
-  Users, 
-  DollarSign, 
-  Calendar, 
-  Eye, 
-  Edit, 
-  Pause, 
-  Play,
-  Trash2,
-  Search,
-  Filter,
-  Download,
-  Plus
-} from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { downloadTextFile, toCsv } from '@/lib/demoStore';
+import { DemoBusiness, getDemoBusinesses, saveDemoBusinesses } from '@/lib/demoPlatformData';
+
+const blankBusiness = {
+  name: '',
+  email: '',
+  industry: '',
+  country: 'Sierra Leone',
+  plan: 'trial' as DemoBusiness['plan'],
+  employees: '1',
+  monthlyRevenue: '0',
+};
 
 const BusinessManagement = () => {
+  const { toast } = useToast();
+  const [businesses, setBusinesses] = useState<DemoBusiness[]>(getDemoBusinesses);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [planFilter, setPlanFilter] = useState('all');
+  const [selected, setSelected] = useState<DemoBusiness | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState(blankBusiness);
 
-  const { data: businessesData, isLoading: isLoadingBusinesses } = useQuery({
-    queryKey: ['allBusinessesList'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*, country:african_countries(name)');
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
-  });
+  const persist = (next: DemoBusiness[]) => {
+    setBusinesses(next);
+    saveDemoBusinesses(next);
+  };
 
-  const { data: usersPerBusiness, isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['usersPerBusiness'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('business_users').select('business_id');
-      if (error) throw new Error(error.message);
-      
-      if (!data) return {};
+  const filteredBusinesses = useMemo(() => businesses.filter((item) => {
+    const search = searchTerm.toLowerCase();
+    return (!search || item.name.toLowerCase().includes(search) || item.email.toLowerCase().includes(search) || item.industry.toLowerCase().includes(search))
+      && (statusFilter === 'all' || item.status === statusFilter)
+      && (planFilter === 'all' || item.plan === planFilter);
+  }), [businesses, planFilter, searchTerm, statusFilter]);
 
-      const counts = data.reduce((acc, { business_id }) => {
-        if (business_id) {
-          acc[business_id] = (acc[business_id] || 0) + 1;
-        }
-        return acc;
-      }, {} as Record<string, number>);
-      return counts;
-    },
-  });
+  const openCreate = () => {
+    setEditingId(null);
+    setDraft(blankBusiness);
+    setEditorOpen(true);
+  };
 
-  const businesses = useMemo(() => {
-    if (!businessesData || !usersPerBusiness) return [];
-    return businessesData.map(b => ({
-      id: b.id,
-      name: b.name,
-      email: b.admin_email,
-      status: b.status,
-      plan: b.subscription_plan,
-      employees: usersPerBusiness[b.id] || 0,
-      monthlyRevenue: b.monthly_revenue || 0,
-      createdAt: b.created_at,
-      lastActive: b.updated_at,
-      industry: b.industry,
-      country: b.country?.name || 'N/A'
-    }));
-  }, [businessesData, usersPerBusiness]);
-  
-  const isLoading = isLoadingBusinesses || isLoadingUsers;
+  const openEdit = (item: DemoBusiness) => {
+    setEditingId(item.id);
+    setDraft({
+      name: item.name,
+      email: item.email,
+      industry: item.industry,
+      country: item.country,
+      plan: item.plan,
+      employees: String(item.employees),
+      monthlyRevenue: String(item.monthlyRevenue),
+    });
+    setEditorOpen(true);
+  };
 
-  const filteredBusinesses = businesses.filter(business => {
-    const matchesSearch = business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         business.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         business.industry.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || business.status === statusFilter;
-    const matchesPlan = planFilter === 'all' || business.plan === planFilter;
-    
-    return matchesSearch && matchesStatus && matchesPlan;
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>;
-      case 'trial':
-        return <Badge className="bg-blue-100 text-blue-800">Trial</Badge>;
-      case 'suspended':
-        return <Badge className="bg-red-100 text-red-800">Suspended</Badge>;
-      case 'terminated':
-        return <Badge className="bg-gray-100 text-gray-800">Terminated</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const saveBusiness = () => {
+    if (!draft.name.trim() || !draft.email.trim() || !draft.industry.trim()) {
+      toast({ title: 'Complete the business record', description: 'Name, email and industry are required.', variant: 'destructive' });
+      return;
     }
-  };
-
-  const getPlanBadge = (plan: string) => {
-    switch (plan) {
-      case 'trial':
-        return <Badge variant="outline">Trial</Badge>;
-      case 'basic':
-        return <Badge className="bg-yellow-100 text-yellow-800">Basic</Badge>;
-      case 'professional':
-        return <Badge className="bg-blue-100 text-blue-800">Professional</Badge>;
-      case 'enterprise':
-        return <Badge className="bg-purple-100 text-purple-800">Enterprise</Badge>;
-      default:
-        return <Badge variant="outline">{plan}</Badge>;
+    if (editingId) {
+      persist(businesses.map((item) => item.id === editingId ? {
+        ...item,
+        ...draft,
+        employees: Math.max(0, Number(draft.employees) || 0),
+        monthlyRevenue: Math.max(0, Number(draft.monthlyRevenue) || 0),
+      } : item));
+      toast({ title: 'Business updated', description: draft.name });
+    } else {
+      const created: DemoBusiness = {
+        id: 'BUS-' + Date.now(),
+        ...draft,
+        status: draft.plan === 'trial' ? 'trial' : 'active',
+        employees: Math.max(0, Number(draft.employees) || 0),
+        monthlyRevenue: Math.max(0, Number(draft.monthlyRevenue) || 0),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      persist([created, ...businesses]);
+      toast({ title: 'Business added', description: created.name });
     }
+    setEditorOpen(false);
   };
 
-  const handleBusinessAction = (businessId: string, action: string) => {
-    console.log(`Performing ${action} on business ${businessId}`);
-    // Implement business actions here
+  const setStatus = (id: string, status: DemoBusiness['status']) => {
+    persist(businesses.map((item) => item.id === id ? { ...item, status } : item));
   };
-  
-  if (isLoading) {
-    return (
-        <div className="space-y-6 p-6">
-            <div className="flex items-center justify-between">
-                <div><Skeleton className="h-9 w-64" /><Skeleton className="h-5 w-96 mt-2" /></div>
-                <div className="flex space-x-2"><Skeleton className="h-10 w-24" /><Skeleton className="h-10 w-32" /></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
-            <div className="flex flex-col sm:flex-row gap-4"><Skeleton className="h-10 flex-1" /><Skeleton className="h-10 w-[200px]" /><Skeleton className="h-10 w-[200px]" /></div>
-            <Card><CardHeader><Skeleton className="h-7 w-48" /><Skeleton className="h-5 w-72 mt-2" /></CardHeader><CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}</div></CardContent></Card>
-        </div>
-    );
-  }
+
+  const exportBusinesses = () => {
+    downloadTextFile('ddreamhr-platform-businesses.csv', toCsv(businesses), 'text/csv;charset=utf-8');
+    toast({ title: 'Export complete', description: String(businesses.length) + ' business record(s) downloaded.' });
+  };
+
+  const activeCount = businesses.filter((item) => item.status === 'active').length;
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Business Management</h1>
-          <p className="text-gray-600">Manage all businesses on the platform</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Business
-          </Button>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-3xl font-bold">Business Management</h1><p className="text-muted-foreground">Manage businesses in the demo platform workspace</p></div>
+        <div className="flex gap-2"><Button variant="outline" onClick={exportBusinesses}><Download className="mr-2 h-4 w-4" />Export</Button><Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Add Business</Button></div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Businesses</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{businesses.length}</div>
-            <p className="text-xs text-muted-foreground">+2 from last week</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Businesses</CardTitle>
-            <Building2 className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {businesses.filter(b => b.status === 'active').length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {Math.round((businesses.filter(b => b.status === 'active').length / businesses.length) * 100)}% active rate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {businesses.reduce((sum, b) => sum + b.employees, 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all businesses</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${businesses.reduce((sum, b) => sum + b.monthlyRevenue, 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Total MRR</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Businesses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{businesses.length}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Active Businesses</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{activeCount}</div><p className="text-xs text-muted-foreground">{businesses.length ? Math.round((activeCount / businesses.length) * 100) : 0}% active</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Employees</CardTitle></CardHeader><CardContent><div className="flex items-center gap-2 text-2xl font-bold"><Users className="h-5 w-5 text-muted-foreground" />{businesses.reduce((sum, item) => sum + item.employees, 0)}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Monthly Revenue</CardTitle></CardHeader><CardContent><div className="flex items-center gap-1 text-2xl font-bold"><DollarSign className="h-5 w-5 text-muted-foreground" />{businesses.reduce((sum, item) => sum + item.monthlyRevenue, 0).toLocaleString()}</div></CardContent></Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Search businesses..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="trial">Trial</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="terminated">Terminated</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={planFilter} onValueChange={setPlanFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by plan" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Plans</SelectItem>
-            <SelectItem value="trial">Trial</SelectItem>
-            <SelectItem value="basic">Basic</SelectItem>
-            <SelectItem value="professional">Professional</SelectItem>
-            <SelectItem value="enterprise">Enterprise</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-10" placeholder="Search businesses..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="trial">Trial</SelectItem><SelectItem value="suspended">Suspended</SelectItem><SelectItem value="terminated">Terminated</SelectItem></SelectContent></Select>
+        <Select value={planFilter} onValueChange={setPlanFilter}><SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All plans</SelectItem><SelectItem value="trial">Trial</SelectItem><SelectItem value="basic">Basic</SelectItem><SelectItem value="professional">Professional</SelectItem><SelectItem value="enterprise">Enterprise</SelectItem></SelectContent></Select>
       </div>
 
-      {/* Business List */}
       <Card>
-        <CardHeader>
-          <CardTitle>Businesses ({filteredBusinesses.length})</CardTitle>
-          <CardDescription>Manage and monitor all registered businesses</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredBusinesses.map((business) => (
-              <div key={business.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Building2 className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{business.name}</h3>
-                    <p className="text-sm text-gray-600">{business.email}</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      {getStatusBadge(business.status)}
-                      {getPlanBadge(business.plan)}
-                      <Badge variant="outline" className="text-xs">
-                        {business.industry}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-6 text-sm">
-                  <div className="text-center">
-                    <div className="font-semibold">{business.employees}</div>
-                    <div className="text-gray-500">Employees</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold">${business.monthlyRevenue}</div>
-                    <div className="text-gray-500">MRR</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold">{business.country}</div>
-                    <div className="text-gray-500">Country</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold">{new Date(business.createdAt).toLocaleDateString()}</div>
-                    <div className="text-gray-500">Created</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => handleBusinessAction(business.id, 'view')}>
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleBusinessAction(business.id, 'edit')}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  {business.status === 'active' ? (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleBusinessAction(business.id, 'suspend')}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Pause className="w-4 h-4" />
-                    </Button>
-                  ) : business.status === 'suspended' ? (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleBusinessAction(business.id, 'activate')}
-                      className="text-green-600 hover:text-green-700"
-                    >
-                      <Play className="w-4 h-4" />
-                    </Button>
-                  ) : null}
-                </div>
+        <CardHeader><CardTitle>Businesses ({filteredBusinesses.length})</CardTitle><CardDescription>All visible controls update the persistent demo dataset.</CardDescription></CardHeader>
+        <CardContent className="space-y-3">
+          {filteredBusinesses.map((item) => (
+            <div key={item.id} className="flex flex-col gap-4 rounded-lg border p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-3"><Building2 className="h-5 w-5 text-primary" /></div><div><p className="font-semibold">{item.name}</p><p className="text-sm text-muted-foreground">{item.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">{item.status}</Badge><Badge variant="secondary">{item.plan}</Badge><Badge variant="outline">{item.industry}</Badge></div></div></div>
+              <div className="grid grid-cols-3 gap-4 text-center text-sm"><div><p className="font-semibold">{item.employees}</p><p className="text-muted-foreground">Employees</p></div><div><p className="font-semibold">{item.monthlyRevenue.toLocaleString()}</p><p className="text-muted-foreground">MRR</p></div><div><p className="font-semibold">{item.country}</p><p className="text-muted-foreground">Country</p></div></div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setSelected(item)}><Eye className="h-4 w-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Edit className="h-4 w-4" /></Button>
+                {item.status === 'active' ? <Button variant="outline" size="sm" onClick={() => setStatus(item.id, 'suspended')}><Pause className="h-4 w-4" /></Button> : item.status === 'suspended' ? <Button variant="outline" size="sm" onClick={() => setStatus(item.id, 'active')}><Play className="h-4 w-4" /></Button> : null}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
+
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingId ? 'Edit business' : 'Add business'}</DialogTitle></DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2"><Label>Name</Label><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Admin email</Label><Input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Industry</Label><Input value={draft.industry} onChange={(e) => setDraft({ ...draft, industry: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Country</Label><Input value={draft.country} onChange={(e) => setDraft({ ...draft, country: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Plan</Label><Select value={draft.plan} onValueChange={(plan) => setDraft({ ...draft, plan: plan as DemoBusiness['plan'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="trial">Trial</SelectItem><SelectItem value="basic">Basic</SelectItem><SelectItem value="professional">Professional</SelectItem><SelectItem value="enterprise">Enterprise</SelectItem></SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-3"><div className="grid gap-2"><Label>Employees</Label><Input type="number" min="0" value={draft.employees} onChange={(e) => setDraft({ ...draft, employees: e.target.value })} /></div><div className="grid gap-2"><Label>Monthly revenue</Label><Input type="number" min="0" value={draft.monthlyRevenue} onChange={(e) => setDraft({ ...draft, monthlyRevenue: e.target.value })} /></div></div>
+            <Button onClick={saveBusiness}>Save business</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent><DialogHeader><DialogTitle>{selected?.name}</DialogTitle></DialogHeader>{selected && <div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Status</span><span>{selected.status}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{selected.plan}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{selected.createdAt}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Industry</span><span>{selected.industry}</span></div></div>}</DialogContent>
+      </Dialog>
     </div>
   );
 };
