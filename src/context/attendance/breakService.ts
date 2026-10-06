@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { BreakRecord } from '@/types/attendance';
 import { isDemoSession, writeDemoData } from '@/lib/demoStore';
+import { createAttendanceBreak, finishAttendanceBreak } from '@/services/tenantAttendance';
 
 export function useBreakService(
   user: any,
@@ -49,21 +50,20 @@ export function useBreakService(
       const currentTime = format(now, 'HH:mm');
       
       if (todayAttendance) {
-        // Create break record
-        const newBreak: BreakRecord = {
-          id: `break-${Date.now()}`,
-          attendanceId: todayAttendance.id,
-          startTime: currentTime,
-          endTime: null,
-          type,
-          isPaid,
-          notes: null
-        };
-        
-        // In a real app, this would be an API call
-        // For now, we'll just update the state
+        const newBreak: BreakRecord = isDemoSession()
+          ? {
+              id: `break-${Date.now()}`,
+              attendanceId: todayAttendance.id,
+              startTime: currentTime,
+              endTime: null,
+              type,
+              isPaid,
+              notes: null,
+            }
+          : await createAttendanceBreak(todayAttendance.id, type, isPaid);
+
         setBreakRecords(prev => {
-          const next = [...prev, newBreak];
+          const next = [...prev.filter((record) => record.id !== newBreak.id), newBreak];
           if (isDemoSession()) writeDemoData('attendance-breaks', next);
           return next;
         });
@@ -118,14 +118,13 @@ export function useBreakService(
       const now = new Date();
       const currentTime = format(now, 'HH:mm');
       
-      // Update break record
-      const updatedBreak: BreakRecord = {
-        ...currentBreak!,
-        endTime: currentTime
-      };
-      
-      // In a real app, this would be an API call
-      // For now, we'll just update the state
+      const updatedBreak: BreakRecord = isDemoSession()
+        ? {
+            ...currentBreak!,
+            endTime: currentTime,
+          }
+        : await finishAttendanceBreak(breakId);
+
       setBreakRecords(prev => {
         const next = prev.map(record => record.id === breakId ? updatedBreak : record);
         if (isDemoSession()) writeDemoData('attendance-breaks', next);
