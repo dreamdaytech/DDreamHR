@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,7 +9,8 @@ import { Calendar, CalendarIcon, Clock, Send, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { readDemoData, writeDemoData } from "@/lib/demoStore";
+import { isDemoSession, readDemoData, writeDemoData } from "@/lib/demoStore";
+import { createTenantTimesheet, listMyTimesheets, submitTenantTimesheet } from "@/services/tenantTime";
 
 interface Timesheet {
   id: string;
@@ -61,11 +62,34 @@ const TimesheetCreator = () => {
     }
   ];
 
-  const [timesheets, setTimesheets] = useState<Timesheet[]>(() => readDemoData<Timesheet[]>('timesheets', seedTimesheets));
+  const [timesheets, setTimesheets] = useState<Timesheet[]>(() =>
+    isDemoSession() ? readDemoData<Timesheet[]>('timesheets', seedTimesheets) : []
+  );
+
+  const refreshTimesheets = async () => {
+    if (isDemoSession()) {
+      setTimesheets(readDemoData<Timesheet[]>('timesheets', seedTimesheets));
+      return;
+    }
+
+    try {
+      setTimesheets(await listMyTimesheets() as Timesheet[]);
+    } catch (error) {
+      toast({
+        title: 'Could not load timesheets',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    void refreshTimesheets();
+  }, []);
 
   const persistTimesheets = (next: Timesheet[]) => {
     setTimesheets(next);
-    writeDemoData('timesheets', next);
+    if (isDemoSession()) writeDemoData('timesheets', next);
   };
 
   const submissionTargets = [
@@ -84,7 +108,7 @@ const TimesheetCreator = () => {
     }
   };
 
-  const handleCreateTimesheet = () => {
+  const handleCreateTimesheet = async () => {
     if (!submissionTarget) {
       toast({
         title: "Submission Target Required",
@@ -94,52 +118,76 @@ const TimesheetCreator = () => {
       return;
     }
 
-    const newTimesheet: Timesheet = {
-      id: Date.now().toString(),
-      period: timesheetType.charAt(0).toUpperCase() + timesheetType.slice(1),
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      status: 'draft',
-      submittedTo: submissionTargets.find(t => t.value === submissionTarget)?.label || '',
-      totalHours: 0,
-      comments
-    };
+    try {
+      const newTimesheet: Timesheet = isDemoSession()
+        ? {
+            id: Date.now().toString(),
+            period: timesheetType.charAt(0).toUpperCase() + timesheetType.slice(1),
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
+            status: 'draft',
+            submittedTo: submissionTargets.find(t => t.value === submissionTarget)?.label || '',
+            totalHours: 0,
+            comments,
+          }
+        : await createTenantTimesheet(timesheetType, submissionTarget, comments) as Timesheet;
 
-    persistTimesheets([newTimesheet, ...timesheets]);
-    setShowSubmissionDialog(false);
-    setComments("");
-    setSubmissionTarget("");
+      persistTimesheets([newTimesheet, ...timesheets]);
+      setShowSubmissionDialog(false);
+      setComments("");
+      setSubmissionTarget("");
 
-    toast({
-      title: "Timesheet Created",
-      description: `A new ${timesheetType} timesheet has been created as draft.`,
-    });
+      toast({
+        title: "Timesheet Created",
+        description: `A new ${timesheetType} timesheet has been created as draft.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not create timesheet',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleSubmitTimesheet = (timesheetId: string) => {
-    persistTimesheets(timesheets.map(ts => 
-      ts.id === timesheetId 
-        ? { ...ts, status: 'submitted' }
-        : ts
-    ));
+  const handleSubmitTimesheet = async (timesheetId: string) => {
+    try {
+      if (!isDemoSession()) await submitTenantTimesheet(timesheetId);
+      persistTimesheets(timesheets.map(ts =>
+        ts.id === timesheetId ? { ...ts, status: 'submitted' } : ts
+      ));
 
-    toast({
-      title: "Timesheet Submitted",
-      description: "Your timesheet has been submitted for approval.",
-    });
+      toast({
+        title: "Timesheet Submitted",
+        description: "Your timesheet has been submitted for approval.",
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not submit timesheet',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleResubmitTimesheet = (timesheetId: string) => {
-    persistTimesheets(timesheets.map(ts => 
-      ts.id === timesheetId 
-        ? { ...ts, status: 'submitted', comments: undefined }
-        : ts
-    ));
+  const handleResubmitTimesheet = async (timesheetId: string) => {
+    try {
+      if (!isDemoSession()) await submitTenantTimesheet(timesheetId);
+      persistTimesheets(timesheets.map(ts =>
+        ts.id === timesheetId ? { ...ts, status: 'submitted', comments: undefined } : ts
+      ));
 
-    toast({
-      title: "Timesheet Resubmitted",
-      description: "Your timesheet has been resubmitted for approval.",
-    });
+      toast({
+        title: "Timesheet Resubmitted",
+        description: "Your timesheet has been resubmitted for approval.",
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not resubmit timesheet',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
