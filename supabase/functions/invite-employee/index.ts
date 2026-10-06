@@ -38,12 +38,27 @@ const resolvePublishableKey = () => {
 
   try {
     const parsed = JSON.parse(publishableMap) as Record<string, string>;
-    const defaultValue = parsed.default;
-    if (!defaultValue) return "";
-    return Deno.env.get(defaultValue) || (defaultValue.startsWith("sb_publishable_") ? defaultValue : "");
+    return parsed.default || "";
   } catch {
     return "";
   }
+};
+
+const resolveSecretKey = () => {
+  const directSecret = Deno.env.get("SUPABASE_SECRET_KEY");
+  if (directSecret) return directSecret;
+
+  const secretMap = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (secretMap) {
+    try {
+      const parsed = JSON.parse(secretMap) as Record<string, string>;
+      if (parsed.default) return parsed.default;
+    } catch {
+      // Fall back to the legacy key below.
+    }
+  }
+
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 };
 
 Deno.serve(async (req: Request) => {
@@ -54,11 +69,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const secretKey = resolveSecretKey();
     const publishableKey = resolvePublishableKey();
     const authHeader = req.headers.get("Authorization") ?? "";
 
-    if (!supabaseUrl || !serviceRoleKey || !publishableKey || !authHeader) {
+    if (!supabaseUrl || !secretKey || !publishableKey || !authHeader) {
       return json({ error: "Function environment is not configured" }, 500);
     }
 
@@ -66,7 +81,7 @@ Deno.serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+    const serviceClient = createClient(supabaseUrl, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
@@ -164,13 +179,10 @@ Deno.serve(async (req: Request) => {
         role,
         token_hash: tokenHash,
         status: "pending",
-        auth_user_existed: Boolean(existingUserId),
+        requires_password: !existingUserId,
         delivery_status: "pending",
         invited_by: authData.user.id,
         expires_at: expiresAt,
-        metadata: {
-          employee_name: `${employee.first_name || ""} ${employee.last_name || ""}`.trim(),
-        },
       })
       .select("id")
       .single();
@@ -210,7 +222,7 @@ Deno.serve(async (req: Request) => {
       );
 
       if (inviteError) {
-        deliveryStatus = "failed";
+        deliveryStatus = "link_only";
         deliveryError = inviteError.message;
       }
     }
@@ -223,14 +235,6 @@ Deno.serve(async (req: Request) => {
         last_sent_at: new Date().toISOString(),
       })
       .eq("id", invitation.id);
-
-    if (deliveryStatus === "failed") {
-      return json({
-        error: deliveryError || "Invitation email could not be sent",
-        invitation_id: invitation.id,
-        invite_url: inviteUrl,
-      }, 502);
-    }
 
     return json({
       invitation_id: invitation.id,
