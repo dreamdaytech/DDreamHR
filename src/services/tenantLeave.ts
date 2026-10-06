@@ -195,32 +195,39 @@ export const listPendingLeaveRequests = async () => {
   const context = await getTenantContext();
   if (!context?.businessId) return [];
 
-  const { data, error } = await supabase
-    .from('leave_requests')
-    .select(`
-      id,
-      employee_id,
-      start_date,
-      end_date,
-      days,
-      reason,
-      status,
-      attachment_paths,
-      applied_at,
-      employees!inner(first_name,last_name,employee_id_number),
-      leave_types!inner(id,name,code),
-      leave_balances!leave_balances_employee_id_fkey(allocated,carried_over,used,pending,year,leave_type_id)
-    `)
-    .eq('business_id', context.businessId)
-    .eq('status', 'pending')
-    .order('applied_at', { ascending: true });
+  const [{ data: requests, error: requestError }, { data: balances, error: balanceError }] = await Promise.all([
+    supabase
+      .from('leave_requests')
+      .select(`
+        id,
+        employee_id,
+        leave_type_id,
+        start_date,
+        end_date,
+        days,
+        reason,
+        status,
+        attachment_paths,
+        applied_at,
+        employees!inner(first_name,last_name,employee_id_number),
+        leave_types!inner(id,name,code)
+      `)
+      .eq('business_id', context.businessId)
+      .eq('status', 'pending')
+      .order('applied_at', { ascending: true }),
+    supabase
+      .from('leave_balances')
+      .select('employee_id,leave_type_id,allocated,carried_over,used,pending,year')
+      .eq('business_id', context.businessId)
+      .eq('year', new Date().getFullYear()),
+  ]);
 
-  if (error) throw error;
+  if (requestError) throw requestError;
+  if (balanceError) throw balanceError;
 
-  return (data || []).map((row: any) => {
-    const balances = Array.isArray(row.leave_balances) ? row.leave_balances : [];
-    const balance = balances.find((item: any) =>
-      item.leave_type_id === row.leave_types?.id && item.year === new Date().getFullYear()
+  return (requests || []).map((row: any) => {
+    const balance = (balances || []).find((item: any) =>
+      item.employee_id === row.employee_id && item.leave_type_id === row.leave_type_id
     );
     const currentBalance = balance
       ? Number(balance.allocated) + Number(balance.carried_over) - Number(balance.used) - Number(balance.pending) + Number(row.days)
