@@ -323,5 +323,30 @@ export const decideLeaveRequest = async (
     .single();
 
   if (error) throw error;
+
+  const { data: workflow } = await supabase
+    .from('workflow_requests')
+    .select('id')
+    .eq('source_type', 'leave_request')
+    .eq('source_id', requestId)
+    .maybeSingle();
+
+  if (workflow) {
+    const completedAt = new Date().toISOString();
+    await supabase
+      .from('workflow_requests')
+      .update({ status: nextStatus, completed_at: completedAt })
+      .eq('id', workflow.id);
+    await supabase
+      .from('work_items')
+      .update({
+        status: action === 'approve' ? 'completed' : 'dismissed',
+        completed_at: completedAt,
+      })
+      .eq('source_type', 'workflow_request')
+      .eq('source_id', workflow.id)
+      .in('status', ['open', 'in_progress']);
+  }
+
   return data;
 };
