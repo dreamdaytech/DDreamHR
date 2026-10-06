@@ -20,6 +20,7 @@ export type MyOnboarding = {
   completedItems: string[];
   completionPercentage: number;
   completedAt?: string | null;
+  lifecycleState: string;
 };
 
 export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
@@ -29,7 +30,7 @@ export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
   const [{ data: employee, error: employeeError }, { data: onboarding, error: onboardingError }] = await Promise.all([
     supabase
       .from('employees')
-      .select('id,employee_id_number,first_name,last_name,position,department,start_date,hire_date')
+      .select('id,employee_id_number,first_name,last_name,position,department,start_date,hire_date,lifecycle_state')
       .eq('id', context.employeeId)
       .single(),
     supabase
@@ -70,6 +71,7 @@ export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
       : [],
     completionPercentage: Number(onboarding.completion_percentage || 0),
     completedAt: onboarding.completed_at,
+    lifecycleState: employee.lifecycle_state || 'onboarding',
   };
 };
 
@@ -84,6 +86,9 @@ export const completeMyOnboardingItem = async (itemId: string) => {
     completed_items: string[];
     completion_percentage: number;
     completed: boolean;
+    activated: boolean;
+    required_tasks: number;
+    required_tasks_completed: number;
     lifecycle_state: string;
   };
 };
