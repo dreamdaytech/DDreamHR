@@ -87,7 +87,9 @@ const AuthForm = () => {
           description: "Welcome back to DDreamHR",
         });
         
-        if (loggedInUser.role === 'super_admin') {
+        if (loggedInUser.role !== 'super_admin' && !loggedInUser.businessId) {
+          navigate('/setup');
+        } else if (loggedInUser.role === 'super_admin') {
           navigate('/super-admin/dashboard');
         } else if (loggedInUser.role === 'admin') {
           navigate('/admin/dashboard');
