@@ -103,7 +103,7 @@ export const createTenantTask = async (task: any) => {
       project_id: task.projectId || null,
       name: task.name,
       description: task.notes || null,
-      assigned_to: task.assignedTo && task.assignedTo.includes('-') ? task.assignedTo : null,
+      assigned_to: task.assignedTo && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(task.assignedTo) ? task.assignedTo : null,
       estimated_hours: Number(task.estimatedHours || 0),
       due_date: task.dueDate || null,
       priority: 'normal',
