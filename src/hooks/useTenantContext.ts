@@ -10,6 +10,8 @@ export type TenantContext = {
   businessName: string | null;
   employeeId: string | null;
   employeeNumber: string | null;
+  lifecycleState: string | null;
+  employmentCondition: string | null;
 };
 
 const loadTenantContext = async (): Promise<TenantContext | null> => {
@@ -31,6 +33,8 @@ const loadTenantContext = async (): Promise<TenantContext | null> => {
     businessName: data.business_name ?? null,
     employeeId: data.employee_id ?? null,
     employeeNumber: data.employee_number ?? null,
+    lifecycleState: data.lifecycle_state ?? null,
+    employmentCondition: data.employment_condition ?? null,
   };
 };
 
