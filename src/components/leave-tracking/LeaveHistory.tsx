@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/context/AuthContext';
+import { downloadTextFile, readDemoData, toCsv } from '@/lib/demoStore';
 import { LeaveDetailsModal } from './components/LeaveDetailsModal';
 import { 
   History, 
@@ -32,7 +33,7 @@ export const LeaveHistory = () => {
 
   const isManagerOrAbove = user?.role && ['manager', 'hr', 'admin'].includes(user.role);
 
-  const personalLeaveHistory = [
+  const seedPersonalLeaveHistory = [
     {
       id: 1,
       type: 'Annual Leave',
@@ -80,7 +81,16 @@ export const LeaveHistory = () => {
     }
   ];
 
+  const storedLeaveRequests = readDemoData<any[]>('leave-requests', []);
+  const personalLeaveHistory = [
+    ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
+    ...seedPersonalLeaveHistory,
+  ];
+
   const teamLeaveHistory = [
+    ...storedLeaveRequests
+      .filter((leave) => leave.employeeId !== user?.id)
+      .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
     {
       id: 4,
       type: 'Annual Leave',
@@ -328,7 +338,17 @@ export const LeaveHistory = () => {
             <History className="h-5 w-5" />
             Leave History
           </CardTitle>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const csv = toCsv(filteredPersonalHistory.map(({ timeline, documents, ...leave }) => ({
+                ...leave,
+                documents: Array.isArray(documents) ? documents.join('; ') : '',
+              })));
+              downloadTextFile('ddreamhr-leave-history.csv', csv, 'text/csv;charset=utf-8');
+            }}
+          >
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>

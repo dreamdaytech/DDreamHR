@@ -5,6 +5,7 @@ import { AttendanceRecord, BreakRecord } from '@/types/attendance';
 import { useLocationCheck } from '@/hooks/useLocationCheck';
 import { determineAttendanceStatus, calculateTotalHours } from '@/utils/attendanceUtils';
 import { getClientIpAddress } from '@/utils/locationUtils';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
 
 export function useCheckInOutService(
   user: any,
@@ -52,7 +53,7 @@ export function useCheckInOutService(
     try {
       const now = new Date();
       const currentTime = format(now, 'HH:mm');
-      const clientIp = await getClientIpAddress();
+      const clientIp = isDemoSession() ? 'demo-session' : await getClientIpAddress();
       
       // Create attendance record
       const newAttendance: AttendanceRecord = {
@@ -79,7 +80,11 @@ export function useCheckInOutService(
       
       // In a real app, this would be an API call
       // For now, we'll just update the state
-      setAttendanceRecords(prev => [...prev, newAttendance]);
+      setAttendanceRecords(prev => {
+        const next = [...prev, newAttendance];
+        if (isDemoSession()) writeDemoData('attendance-records', next);
+        return next;
+      });
       setTodayAttendance(newAttendance);
       
       toast({
@@ -130,7 +135,7 @@ export function useCheckInOutService(
     
     try {
       // Validate location
-      const locationValid = await validateLocation(false);
+      const locationValid = isDemoSession() ? true : await validateLocation(false);
       if (!locationValid) return false;
       
       const now = new Date();
@@ -154,9 +159,11 @@ export function useCheckInOutService(
         
         // In a real app, this would be an API call
         // For now, we'll just update the state
-        setAttendanceRecords(prev => prev.map(record => 
-          record.id === todayAttendance.id ? updatedAttendance : record
-        ));
+        setAttendanceRecords(prev => {
+          const next = prev.map(record => record.id === todayAttendance.id ? updatedAttendance : record);
+          if (isDemoSession()) writeDemoData('attendance-records', next);
+          return next;
+        });
         setTodayAttendance(updatedAttendance);
         
         toast({

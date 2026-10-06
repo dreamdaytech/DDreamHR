@@ -2,6 +2,7 @@
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { BreakRecord } from '@/types/attendance';
+import { isDemoSession, writeDemoData } from '@/lib/demoStore';
 
 export function useBreakService(
   user: any,
@@ -61,7 +62,11 @@ export function useBreakService(
         
         // In a real app, this would be an API call
         // For now, we'll just update the state
-        setBreakRecords(prev => [...prev, newBreak]);
+        setBreakRecords(prev => {
+          const next = [...prev, newBreak];
+          if (isDemoSession()) writeDemoData('attendance-breaks', next);
+          return next;
+        });
         setCurrentBreak(newBreak);
         
         toast({
@@ -121,9 +126,11 @@ export function useBreakService(
       
       // In a real app, this would be an API call
       // For now, we'll just update the state
-      setBreakRecords(prev => prev.map(record => 
-        record.id === breakId ? updatedBreak : record
-      ));
+      setBreakRecords(prev => {
+        const next = prev.map(record => record.id === breakId ? updatedBreak : record);
+        if (isDemoSession()) writeDemoData('attendance-breaks', next);
+        return next;
+      });
       setCurrentBreak(null);
       
       toast({

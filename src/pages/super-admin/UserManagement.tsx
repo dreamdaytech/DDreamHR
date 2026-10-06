@@ -1,262 +1,163 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { 
-  Users, UserPlus, Search, Download, MoreHorizontal, Eye, Edit, Ban, CheckCircle, XCircle, AlertTriangle, Building2
-} from 'lucide-react';
+import { Users, UserPlus, Search, Download, MoreHorizontal, Eye, Edit, Ban, CheckCircle, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import UserInviteDialog from '@/components/super-admin/UserInviteDialog';
-import UserEditDialog from '@/components/super-admin/UserEditDialog';
-import UserExportDialog from '@/components/super-admin/UserExportDialog';
-import { Skeleton } from '@/components/ui/skeleton';
-
-export interface PlatformUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: string | null;
-  avatar: string | null;
-  business: string;
-  businessId: string | null;
-  lastLogin: string | null;
-  createdAt: string | null;
-  permissions: string[];
-  loginCount: number | null;
-  country: string | null;
-}
+import { downloadTextFile, toCsv } from '@/lib/demoStore';
+import { DemoPlatformUser, getDemoBusinesses, getDemoPlatformUsers, saveDemoPlatformUsers } from '@/lib/demoPlatformData';
 
 const UserManagement = () => {
+  const { toast } = useToast();
+  const businesses = getDemoBusinesses();
+  const [users, setUsers] = useState<DemoPlatformUser[]>(getDemoPlatformUsers);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [businessFilter, setBusinessFilter] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
-  const [showUserDetails, setShowUserDetails] = useState(false);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const { toast } = useToast();
-
-  const { data: users, isLoading, error, refetch } = useQuery({
-    queryKey: ['all_platform_users'],
-    queryFn: async (): Promise<PlatformUser[]> => {
-      // The rpc function is not in the generated types yet, so we cast the name to any
-      const { data, error } = await supabase.rpc('get_all_platform_users' as any);
-      if (error) {
-        toast({
-          title: 'Error fetching users',
-          description: error.message,
-          variant: 'destructive',
-        });
-        throw new Error(error.message);
-      }
-      return data || [];
-    },
-    initialData: [] // Using initialData ensures `users` is always an array and never undefined
+  const [selected, setSelected] = useState<DemoPlatformUser | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    name: '',
+    email: '',
+    role: 'employee' as DemoPlatformUser['role'],
+    businessId: businesses[0]?.id || '',
+    country: 'Sierra Leone',
   });
 
-  const businesses = useMemo(() => {
-    if (!users) return [];
-    const businessMap = new Map<string, { id: string; name: string }>();
-    users.forEach(user => {
-      if (user.businessId && user.business && !businessMap.has(user.businessId)) {
-        businessMap.set(user.businessId, { id: user.businessId, name: user.business });
-      }
-    });
-    return Array.from(businessMap.values());
-  }, [users]);
+  const persist = (next: DemoPlatformUser[]) => {
+    setUsers(next);
+    saveDemoPlatformUsers(next);
+  };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.business.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesBusiness = businessFilter === 'all' || user.businessId?.toString() === businessFilter;
-    
-    return matchesSearch && matchesStatus && matchesRole && matchesBusiness;
-  });
+  const filteredUsers = useMemo(() => users.filter((item) => {
+    const search = searchTerm.toLowerCase();
+    return (!search || item.name.toLowerCase().includes(search) || item.email.toLowerCase().includes(search) || item.business.toLowerCase().includes(search))
+      && (statusFilter === 'all' || item.status === statusFilter)
+      && (roleFilter === 'all' || item.role === roleFilter)
+      && (businessFilter === 'all' || item.businessId === businessFilter);
+  }), [businessFilter, roleFilter, searchTerm, statusFilter, users]);
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
-      case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200"><XCircle className="w-3 h-3 mr-1" />Inactive</Badge>;
-      case 'suspended':
-        return <Badge className="bg-red-100 text-red-800 border-red-200"><Ban className="w-3 h-3 mr-1" />Suspended</Badge>;
-      default:
-        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
+  const openCreate = () => {
+    setEditingId(null);
+    setDraft({ name: '', email: '', role: 'employee', businessId: businesses[0]?.id || '', country: 'Sierra Leone' });
+    setEditorOpen(true);
+  };
+
+  const openEdit = (item: DemoPlatformUser) => {
+    setEditingId(item.id);
+    setDraft({ name: item.name, email: item.email, role: item.role, businessId: item.businessId || '', country: item.country });
+    setEditorOpen(true);
+  };
+
+  const saveUser = () => {
+    if (!draft.name.trim() || !draft.email.trim()) {
+      toast({ title: 'Complete the user', description: 'Name and email are required.', variant: 'destructive' });
+      return;
     }
-  };
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return <Badge className="bg-purple-100 text-purple-800">Super Admin</Badge>;
-      case 'admin':
-        return <Badge className="bg-blue-100 text-blue-800">Admin</Badge>;
-      case 'hr':
-        return <Badge className="bg-green-100 text-green-800">HR</Badge>;
-      case 'manager':
-        return <Badge className="bg-orange-100 text-orange-800">Manager</Badge>;
-      case 'employee':
-        return <Badge className="bg-gray-100 text-gray-800">Employee</Badge>;
-      default:
-        return <Badge variant="outline">{role}</Badge>;
+    const business = businesses.find((item) => item.id === draft.businessId);
+    if (editingId) {
+      persist(users.map((item) => item.id === editingId ? {
+        ...item,
+        ...draft,
+        business: draft.role === 'super_admin' ? 'Platform' : business?.name || item.business,
+        businessId: draft.role === 'super_admin' ? null : draft.businessId || null,
+      } : item));
+      toast({ title: 'User updated', description: draft.name });
+    } else {
+      const created: DemoPlatformUser = {
+        id: 'USR-' + Date.now(),
+        ...draft,
+        status: 'active',
+        business: draft.role === 'super_admin' ? 'Platform' : business?.name || 'Unassigned',
+        businessId: draft.role === 'super_admin' ? null : draft.businessId || null,
+        lastLogin: null,
+        createdAt: new Date().toISOString(),
+        loginCount: 0,
+      };
+      persist([created, ...users]);
+      toast({ title: 'User invited', description: created.email + ' was added to the demo platform.' });
     }
+    setEditorOpen(false);
   };
 
-  const handleUserAction = (userId: string, action: string) => {
-    const user = users.find(u => u.id === userId);
-    toast({
-      title: `User ${action}`,
-      description: `${user?.name} has been ${action.toLowerCase()}`,
-    });
+  const updateStatus = (id: string, status: DemoPlatformUser['status']) => {
+    persist(users.map((item) => item.id === id ? { ...item, status } : item));
   };
 
-  const handleViewUser = (user: PlatformUser) => {
-    setSelectedUser(user);
-    setShowUserDetails(true);
+  const exportUsers = () => {
+    downloadTextFile('ddreamhr-platform-users.csv', toCsv(users), 'text/csv;charset=utf-8');
+    toast({ title: 'Export complete', description: String(users.length) + ' user record(s) downloaded.' });
   };
-
-  const handleEditUser = (user: PlatformUser) => {
-    setSelectedUser(user);
-    setShowEditDialog(true);
-  };
-
-  const handleSaveUser = (updatedUser: any) => {
-    console.log('Updated user:', updatedUser);
-    refetch();
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div><Skeleton className="h-9 w-64" /><Skeleton className="h-5 w-96 mt-2" /></div>
-          <div className="flex space-x-2"><Skeleton className="h-10 w-32" /><Skeleton className="h-10 w-32" /></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
-        <div className="flex flex-col sm:flex-row gap-4"><Skeleton className="h-10 flex-1" /><Skeleton className="h-10 w-[180px]" /><Skeleton className="h-10 w-[180px]" /><Skeleton className="h-10 w-[200px]" /></div>
-        <Card><CardHeader><Skeleton className="h-7 w-48" /><Skeleton className="h-5 w-72 mt-2" /></CardHeader><CardContent><div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24" />)}</div></CardContent></Card>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6 p-6 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-        <AlertTriangle className="h-16 w-16 text-red-500" />
-        <h2 className="text-xl font-semibold mt-4">Failed to load users</h2>
-        <p className="text-muted-foreground">{(error as Error).message}</p>
-        <Button onClick={() => refetch()} className="mt-4">Try again</Button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage users across all businesses on the platform</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => setShowExportDialog(true)}><Download className="w-4 h-4 mr-2" />Export Users</Button>
-          <Button onClick={() => setShowInviteDialog(true)}><UserPlus className="w-4 h-4 mr-2" />Invite User</Button>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground">Manage platform users in the hosted demo workspace.</p></div>
+        <div className="flex gap-2"><Button variant="outline" onClick={exportUsers}><Download className="mr-2 h-4 w-4" />Export Users</Button><Button onClick={openCreate}><UserPlus className="mr-2 h-4 w-4" />Invite User</Button></div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{users.length}</div><p className="text-xs text-muted-foreground">Across all businesses</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Active Users</CardTitle><CheckCircle className="h-4 w-4 text-green-600" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{users.filter(u => u.status === 'active').length}</div><p className="text-xs text-muted-foreground">{users.length > 0 ? Math.round((users.filter(u => u.status === 'active').length / users.length) * 100) : 0}% active rate</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Admin Users</CardTitle><Users className="h-4 w-4 text-blue-600" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{users.filter(u => ['admin', 'super_admin'].includes(u.role)).length}</div><p className="text-xs text-muted-foreground">Admin & Super Admin</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Businesses</CardTitle><Building2 className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{businesses.length}</div><p className="text-xs text-muted-foreground">With active users</p></CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Users</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{users.length}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Active Users</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{users.filter((item) => item.status === 'active').length}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Administrators</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{users.filter((item) => item.role === 'admin' || item.role === 'super_admin').length}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Businesses</CardTitle></CardHeader><CardContent><div className="flex items-center gap-2 text-2xl font-bold"><Building2 className="h-5 w-5 text-muted-foreground" />{businesses.length}</div></CardContent></Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by status" /></SelectTrigger><SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select>
-        <Select value={roleFilter} onValueChange={setRoleFilter}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by role" /></SelectTrigger><SelectContent><SelectItem value="all">All Roles</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="employee">Employee</SelectItem></SelectContent></Select>
-        <Select value={businessFilter} onValueChange={setBusinessFilter}><SelectTrigger className="w-[200px]"><SelectValue placeholder="Filter by business" /></SelectTrigger><SelectContent><SelectItem value="all">All Businesses</SelectItem>{businesses.map((business) => (<SelectItem key={business.id} value={business.id}>{business.name}</SelectItem>))}</SelectContent></Select>
+      <div className="flex flex-col gap-3 lg:flex-row">
+        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-10" placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="lg:w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}><SelectTrigger className="lg:w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All roles</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="employee">Employee</SelectItem></SelectContent></Select>
+        <Select value={businessFilter} onValueChange={setBusinessFilter}><SelectTrigger className="lg:w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All businesses</SelectItem>{businesses.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Users ({filteredUsers.length})</CardTitle><CardDescription>Manage and monitor all platform users</CardDescription></CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12"><AvatarImage src={user.avatar || undefined} alt={user.name} /><AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback></Avatar>
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-gray-600">{user.email}</p>
-                    <div className="flex items-center space-x-2 mt-1">{getStatusBadge(user.status)}{getRoleBadge(user.role)}<Badge variant="outline" className="text-xs"><Building2 className="w-3 h-3 mr-1" />{user.business}</Badge></div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-6 text-sm">
-                  <div className="text-center"><div className="font-semibold">{user.loginCount || 0}</div><div className="text-gray-500">Logins</div></div>
-                  <div className="text-center"><div className="font-semibold">{user.country || 'N/A'}</div><div className="text-gray-500">Country</div></div>
-                  <div className="text-center"><div className="font-semibold">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}</div><div className="text-gray-500">Last Login</div></div>
-                </div>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleViewUser(user)}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleEditUser(user)}><Edit className="mr-2 h-4 w-4" />Edit User</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {user.status === 'active' ? (<DropdownMenuItem onClick={() => handleUserAction(user.id, 'suspend')} className="text-red-600"><Ban className="mr-2 h-4 w-4" />Suspend User</DropdownMenuItem>) : (<DropdownMenuItem onClick={() => handleUserAction(user.id, 'activate')} className="text-green-600"><CheckCircle className="mr-2 h-4 w-4" />Activate User</DropdownMenuItem>)}
-                  </DropdownMenuContent></DropdownMenu>
-              </div>
-            ))}
-          </div>
+        <CardHeader><CardTitle>Users ({filteredUsers.length})</CardTitle><CardDescription>View, edit, invite and suspend users without requiring a Supabase session.</CardDescription></CardHeader>
+        <CardContent className="space-y-3">
+          {filteredUsers.map((item) => (
+            <div key={item.id} className="flex flex-col gap-4 rounded-lg border p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3"><Avatar><AvatarFallback>{item.name.split(' ').map((name) => name[0]).join('').slice(0, 2)}</AvatarFallback></Avatar><div><p className="font-semibold">{item.name}</p><p className="text-sm text-muted-foreground">{item.email}</p><div className="mt-1 flex flex-wrap gap-2"><Badge variant="outline">{item.status}</Badge><Badge variant="secondary">{item.role}</Badge><Badge variant="outline">{item.business}</Badge></div></div></div>
+              <div className="grid grid-cols-3 gap-4 text-center text-sm"><div><p className="font-semibold">{item.loginCount}</p><p className="text-muted-foreground">Logins</p></div><div><p className="font-semibold">{item.country}</p><p className="text-muted-foreground">Country</p></div><div><p className="font-semibold">{item.lastLogin ? new Date(item.lastLogin).toLocaleDateString() : 'Never'}</p><p className="text-muted-foreground">Last login</p></div></div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSelected(item)}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEdit(item)}><Edit className="mr-2 h-4 w-4" />Edit User</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {item.status === 'active'
+                    ? <DropdownMenuItem onClick={() => updateStatus(item.id, 'suspended')}><Ban className="mr-2 h-4 w-4" />Suspend User</DropdownMenuItem>
+                    : <DropdownMenuItem onClick={() => updateStatus(item.id, 'active')}><CheckCircle className="mr-2 h-4 w-4" />Activate User</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>User Details</DialogTitle><DialogDescription>Detailed information about {selectedUser?.name}</DialogDescription></DialogHeader>
-          {selectedUser && (
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <Avatar className="h-16 w-16"><AvatarImage src={selectedUser.avatar || undefined} alt={selectedUser.name} /><AvatarFallback className="text-lg">{selectedUser.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback></Avatar>
-                <div><h3 className="text-xl font-semibold">{selectedUser.name}</h3><p className="text-gray-600">{selectedUser.email}</p><div className="flex items-center space-x-2 mt-2">{getStatusBadge(selectedUser.status)}{getRoleBadge(selectedUser.role)}</div></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><h4 className="font-medium">Business Information</h4><div className="text-sm space-y-1"><div className="flex justify-between"><span className="text-gray-500">Business:</span><span>{selectedUser.business}</span></div><div className="flex justify-between"><span className="text-gray-500">Country:</span><span>{selectedUser.country}</span></div></div></div>
-                <div className="space-y-2"><h4 className="font-medium">Activity Information</h4><div className="text-sm space-y-1"><div className="flex justify-between"><span className="text-gray-500">Login Count:</span><span>{selectedUser.loginCount}</span></div><div className="flex justify-between"><span className="text-gray-500">Last Login:</span><span>{selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleDateString() : 'N/A'}</span></div><div className="flex justify-between"><span className="text-gray-500">Created:</span><span>{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'N/A'}</span></div></div></div>
-              </div>
-              <div className="space-y-2"><h4 className="font-medium">Permissions</h4><div className="flex flex-wrap gap-2">{selectedUser.permissions.map((permission: string) => (<Badge key={permission} variant="secondary">{permission}</Badge>))}</div></div>
-              <div className="flex justify-end space-x-2"><Button variant="outline" onClick={() => setShowUserDetails(false)}>Close</Button><Button onClick={() => { handleEditUser(selectedUser); setShowUserDetails(false); }}>Edit User</Button></div>
-            </div>
-          )}
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingId ? 'Edit user' : 'Invite user'}</DialogTitle><DialogDescription>Changes are stored in the hosted demo workspace.</DialogDescription></DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2"><Label>Name</Label><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Email</Label><Input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Role</Label><Select value={draft.role} onValueChange={(role) => setDraft({ ...draft, role: role as DemoPlatformUser['role'] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="super_admin">Super Admin</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="employee">Employee</SelectItem></SelectContent></Select></div>
+            {draft.role !== 'super_admin' && <div className="grid gap-2"><Label>Business</Label><Select value={draft.businessId} onValueChange={(businessId) => setDraft({ ...draft, businessId })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{businesses.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>}
+            <div className="grid gap-2"><Label>Country</Label><Input value={draft.country} onChange={(e) => setDraft({ ...draft, country: e.target.value })} /></div>
+            <Button onClick={saveUser}>{editingId ? 'Save user' : 'Send demo invite'}</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      <UserInviteDialog open={showInviteDialog} onOpenChange={setShowInviteDialog} businesses={businesses} />
-      <UserEditDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={selectedUser} onSave={handleSaveUser} businesses={businesses} />
-      <UserExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent><DialogHeader><DialogTitle>{selected?.name}</DialogTitle></DialogHeader>{selected && <div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{selected.email}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Role</span><span>{selected.role}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Status</span><span>{selected.status}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Business</span><span>{selected.business}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{new Date(selected.createdAt).toLocaleDateString()}</span></div></div>}</DialogContent>
+      </Dialog>
     </div>
   );
 };

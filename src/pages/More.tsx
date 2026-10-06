@@ -5,9 +5,11 @@ import { MobileHeader } from '@/components/layout/MobileHeader';
 import { Separator } from '@/components/ui/separator';
 import { PrimaryMenuSection } from './more/PrimaryMenuSection';
 import { SecondaryMenuSection } from './more/SecondaryMenuSection';
+import { useAuth } from '@/context/AuthContext';
 
 const More = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleItemClick = (route: string) => {
     navigate(route);
@@ -19,7 +21,7 @@ const More = () => {
       
       <div className="p-4 space-y-1">
         {/* Primary Menu Items */}
-        <PrimaryMenuSection onItemClick={handleItemClick} />
+        <PrimaryMenuSection onItemClick={handleItemClick} userRole={user?.role} />
 
         {/* Separator */}
         <div className="py-2">
@@ -27,7 +29,7 @@ const More = () => {
         </div>
 
         {/* Secondary Menu Items */}
-        <SecondaryMenuSection onItemClick={handleItemClick} />
+        <SecondaryMenuSection onItemClick={handleItemClick} userRole={user?.role} />
       </div>
     </div>
   );

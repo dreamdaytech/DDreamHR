@@ -9,6 +9,7 @@ import { Calendar, CalendarIcon, Clock, Send, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { readDemoData, writeDemoData } from "@/lib/demoStore";
 
 interface Timesheet {
   id: string;
@@ -27,8 +28,9 @@ const TimesheetCreator = () => {
   const [submissionTarget, setSubmissionTarget] = useState<string>("");
   const [comments, setComments] = useState<string>("");
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false);
+  const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
   
-  const [timesheets, setTimesheets] = useState<Timesheet[]>([
+  const seedTimesheets: Timesheet[] = [
     {
       id: "1",
       period: "Weekly",
@@ -57,7 +59,14 @@ const TimesheetCreator = () => {
       totalHours: 6,
       comments: "Missing project details for afternoon tasks"
     }
-  ]);
+  ];
+
+  const [timesheets, setTimesheets] = useState<Timesheet[]>(() => readDemoData<Timesheet[]>('timesheets', seedTimesheets));
+
+  const persistTimesheets = (next: Timesheet[]) => {
+    setTimesheets(next);
+    writeDemoData('timesheets', next);
+  };
 
   const submissionTargets = [
     { value: "manager", label: "Manager" },
@@ -96,7 +105,7 @@ const TimesheetCreator = () => {
       comments
     };
 
-    setTimesheets(prev => [newTimesheet, ...prev]);
+    persistTimesheets([newTimesheet, ...timesheets]);
     setShowSubmissionDialog(false);
     setComments("");
     setSubmissionTarget("");
@@ -108,7 +117,7 @@ const TimesheetCreator = () => {
   };
 
   const handleSubmitTimesheet = (timesheetId: string) => {
-    setTimesheets(prev => prev.map(ts => 
+    persistTimesheets(timesheets.map(ts => 
       ts.id === timesheetId 
         ? { ...ts, status: 'submitted' }
         : ts
@@ -121,7 +130,7 @@ const TimesheetCreator = () => {
   };
 
   const handleResubmitTimesheet = (timesheetId: string) => {
-    setTimesheets(prev => prev.map(ts => 
+    persistTimesheets(timesheets.map(ts => 
       ts.id === timesheetId 
         ? { ...ts, status: 'submitted', comments: undefined }
         : ts
@@ -251,7 +260,7 @@ const TimesheetCreator = () => {
                     </Button>
                   )}
                   
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTimesheet(timesheet)}>
                     <FileText className="h-4 w-4 mr-1" />
                     View Details
                   </Button>
@@ -261,6 +270,22 @@ const TimesheetCreator = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedTimesheet} onOpenChange={(open) => !open && setSelectedTimesheet(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Timesheet details</DialogTitle></DialogHeader>
+          {selectedTimesheet && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{selectedTimesheet.period}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Dates</span><span>{selectedTimesheet.startDate} to {selectedTimesheet.endDate}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Hours</span><span>{selectedTimesheet.totalHours}h</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Submitted to</span><span>{selectedTimesheet.submittedTo}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="capitalize">{selectedTimesheet.status}</span></div>
+              {selectedTimesheet.comments && <p className="rounded-md bg-muted p-3">{selectedTimesheet.comments}</p>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="text-sm text-muted-foreground">
         <p className="mt-2">

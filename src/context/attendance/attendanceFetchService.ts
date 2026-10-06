@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AttendanceRecord, AttendanceStatus } from '@/types/attendance';
 import { supabase } from '@/integrations/supabase/client';
+import { isDemoSession, readDemoData } from '@/lib/demoStore';
 
 export function useAttendanceFetchService(
   user: any,
@@ -17,6 +18,15 @@ export function useAttendanceFetchService(
     if (!user) return;
     
     setIsLoading(true);
+
+    if (isDemoSession()) {
+      const stored = readDemoData<AttendanceRecord[]>('attendance-records', []);
+      const start = format(startDate, 'yyyy-MM-dd');
+      const end = format(endDate, 'yyyy-MM-dd');
+      setAttendanceRecords(stored.filter((record) => record.employeeId === user.id && record.date >= start && record.date <= end));
+      setIsLoading(false);
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -64,10 +74,13 @@ export function useAttendanceFetchService(
     if (!user) return [];
     
     const dateStr = format(date, 'yyyy-MM-dd');
-    
-    // In a real app, this would be an API call
-    // For now, we'll filter the existing records
-    const records = attendanceRecords.filter(record => 
+
+    const source = isDemoSession()
+      ? readDemoData<AttendanceRecord[]>('attendance-records', [])
+      : attendanceRecords;
+    if (isDemoSession()) setAttendanceRecords(source);
+
+    const records = source.filter(record => 
       record.employeeId === user.id && record.date === dateStr
     );
     
@@ -126,6 +139,14 @@ export function useAttendanceFetchService(
         variant: "destructive",
       });
       return [];
+    }
+
+    if (isDemoSession()) {
+      const start = format(startDate, 'yyyy-MM-dd');
+      const end = format(endDate, 'yyyy-MM-dd');
+      return readDemoData<AttendanceRecord[]>('attendance-records', []).filter(
+        (record) => record.employeeId === employeeId && record.date >= start && record.date <= end,
+      );
     }
 
     try {

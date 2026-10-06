@@ -3,7 +3,6 @@ import {
   Users,
   Calendar,
   Clock,
-  Award,
   FileText,
   UserPlus,
   Heart,
@@ -107,15 +106,6 @@ export const getServiceItems = (userRole?: string): ServiceItem[] => [
     iconColor: 'bg-teal-500',
     route: '/time-tracking',
     roles: ['admin', 'hr', 'manager', 'employee']
-  },
-  {
-    id: 'performance',
-    title: 'Performance',
-    description: 'Manage goals, reviews, and evaluations',
-    icon: Award,
-    iconColor: 'bg-red-600',
-    route: '/performance',
-    roles: ['admin', 'hr', 'manager']
   },
   {
     id: 'documents',

@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import EmployeeForm from '@/components/employees/EmployeeForm';
 import EmployeeFilter from '@/components/employees/EmployeeFilter';
 import EmployeeSettings from '@/components/employees/EmployeeSettings';
+import { downloadTextFile, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
 
 type Employee = {
   id: number;
@@ -63,7 +64,7 @@ const EmployeeDirectory = () => {
   const { toast } = useToast();
 
   // Mock employee data matching the reference design
-  const employees: Employee[] = [
+  const seedEmployees: Employee[] = [
     {
       id: 1,
       name: 'John Doe',
@@ -162,6 +163,13 @@ const EmployeeDirectory = () => {
     },
   ];
 
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+    const stored = readDemoData<Employee[]>('employees', []);
+    if (stored.length) return stored;
+    writeDemoData('employees', seedEmployees);
+    return seedEmployees;
+  });
+
   const statusFilters: StatusFilter[] = ['All', 'Active', 'Inactive', 'Onboarding', 'On Leave', 'Probation', 'Terminated'];
 
   const departments = ['Engineering', 'Marketing', 'Finance', 'Product', 'Sales', 'Customer Support', 'Human Resources'];
@@ -183,17 +191,48 @@ const EmployeeDirectory = () => {
   };
 
   const handleImport = () => {
-    toast({
-      title: "Import started",
-      description: "Your employee data is being processed"
-    });
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const rows = text.split(/\\r?\\n/).filter(Boolean);
+        if (rows.length < 2) throw new Error('CSV has no employee rows');
+        const headers = rows[0].split(',').map((header) => header.trim().replace(/^"|"$/g, ''));
+        const imported = rows.slice(1).map((row, index) => {
+          const values = row.split(',').map((value) => value.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+          const record = Object.fromEntries(headers.map((header, i) => [header, values[i] || '']));
+          return {
+            id: Number(record.id) || Date.now() + index,
+            name: record.name || `Imported Employee ${index + 1}`,
+            email: record.email || '',
+            phone: record.phone || '',
+            department: record.department || 'Unassigned',
+            position: record.position || 'Employee',
+            location: record.location || 'Remote',
+            status: (record.status || 'Active') as Employee['status'],
+            imageUrl: '/placeholder.svg',
+            joiningDate: record.joiningDate || new Date().toISOString().split('T')[0],
+          } satisfies Employee;
+        });
+        const next = [...imported, ...employees];
+        setEmployees(next);
+        writeDemoData('employees', next);
+        toast({ title: 'Import complete', description: `${imported.length} employee record(s) imported.` });
+      } catch (error) {
+        toast({ title: 'Import failed', description: error instanceof Error ? error.message : 'Could not read CSV file.', variant: 'destructive' });
+      }
+    };
+    input.click();
   };
 
   const handleExport = () => {
-    toast({
-      title: "Export complete",
-      description: "Your employee data has been exported"
-    });
+    const csv = toCsv(employees.map(({ imageUrl, ...employee }) => employee));
+    downloadTextFile('ddreamhr-employees.csv', csv, 'text/csv;charset=utf-8');
+    toast({ title: 'Export complete', description: `${employees.length} employee record(s) downloaded.` });
   };
 
   const getStatusColor = (status: Employee['status']) => {
@@ -409,7 +448,13 @@ const EmployeeDirectory = () => {
                     ✕
                   </Button>
                 </div>
-                <EmployeeForm />
+                <EmployeeForm
+                  onSaved={() => {
+                    setShowEmployeeForm(false);
+                    setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
+                  }}
+                  onCancel={() => setShowEmployeeForm(false)}
+                />
               </div>
             </div>
           </div>

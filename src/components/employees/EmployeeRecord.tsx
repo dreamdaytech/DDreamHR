@@ -1,9 +1,15 @@
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 import {
   ArrowLeft,
   Briefcase,
@@ -21,7 +27,7 @@ import {
   Users,
 } from 'lucide-react';
 
-const employee = {
+const seedEmployee = {
   id: '1',
   name: 'John Doe',
   email: 'john.doe@dreamdayhr.com',
@@ -56,6 +62,40 @@ const InfoRow = ({ label, value }: { label: string; value: string }) => (
 const EmployeeRecord = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const storedEmployees = useMemo(() => readDemoData<any[]>('employees', []), [id]);
+  const storedEmployee = storedEmployees.find((item) => String(item.id) === String(id));
+  const initialEmployee = {
+    ...seedEmployee,
+    ...(storedEmployee || {}),
+    manager: storedEmployee?.reportingManager || storedEmployee?.manager || seedEmployee.manager,
+    employmentType: storedEmployee?.employmentType || seedEmployee.employmentType,
+    startDate: storedEmployee?.joiningDate || storedEmployee?.startDate || seedEmployee.startDate,
+    lifecycle: storedEmployee?.status === 'Onboarding' ? 'Onboarding' : storedEmployee?.status === 'Terminated' ? 'Former Employee' : seedEmployee.lifecycle,
+    condition: storedEmployee?.status === 'On Leave' ? 'On Leave' : storedEmployee?.status === 'Probation' ? 'Probation' : seedEmployee.condition,
+  };
+  const [employee, setEmployee] = useState(initialEmployee);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editDraft, setEditDraft] = useState({
+    name: initialEmployee.name,
+    position: initialEmployee.position,
+    department: initialEmployee.department,
+    manager: initialEmployee.manager,
+    location: initialEmployee.location,
+  });
+
+  const saveEmployee = () => {
+    const nextEmployee = { ...employee, ...editDraft };
+    setEmployee(nextEmployee);
+    if (storedEmployee) {
+      const next = storedEmployees.map((item) =>
+        String(item.id) === String(id)
+          ? { ...item, ...editDraft, reportingManager: editDraft.manager }
+          : item,
+      );
+      writeDemoData('employees', next);
+    }
+    setEditOpen(false);
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -71,8 +111,15 @@ const EmployeeRecord = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">More actions</Button>
-          <Button>Edit employee</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline">More actions</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate('/employees?view=changes')}>Create employee change</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/employees?view=offboarding')}>Start offboarding</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/documents')}>Open documents</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setEditOpen(true)}>Edit employee</Button>
         </div>
       </div>
 
@@ -224,7 +271,7 @@ const EmployeeRecord = () => {
               {['Employment contract', 'National ID', 'Work permit'].map((name, index) => (
                 <div key={name} className="flex items-center justify-between rounded-lg border p-3">
                   <div className="flex items-center gap-3"><FileText className="h-4 w-4 text-primary" /><div><p className="font-medium">{name}</p><p className="text-sm text-muted-foreground">Updated {index + 1} month{index ? 's' : ''} ago</p></div></div>
-                  <Button variant="ghost" size="sm">Open</Button>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/documents')}>Open</Button>
                 </div>
               ))}
             </CardContent>
@@ -258,6 +305,19 @@ const EmployeeRecord = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit employee</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2"><Label htmlFor="employee-name">Name</Label><Input id="employee-name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label htmlFor="employee-position">Position</Label><Input id="employee-position" value={editDraft.position} onChange={(e) => setEditDraft({ ...editDraft, position: e.target.value })} /></div>
+            <div className="grid gap-2"><Label htmlFor="employee-department">Department</Label><Input id="employee-department" value={editDraft.department} onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })} /></div>
+            <div className="grid gap-2"><Label htmlFor="employee-manager">Manager</Label><Input id="employee-manager" value={editDraft.manager} onChange={(e) => setEditDraft({ ...editDraft, manager: e.target.value })} /></div>
+            <div className="grid gap-2"><Label htmlFor="employee-location">Location</Label><Input id="employee-location" value={editDraft.location} onChange={(e) => setEditDraft({ ...editDraft, location: e.target.value })} /></div>
+            <Button onClick={saveEmployee}>Save changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

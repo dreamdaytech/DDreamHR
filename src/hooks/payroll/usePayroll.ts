@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
 
 export interface PayrollPeriod {
   id: string;
@@ -81,6 +81,72 @@ export interface PayrollSummary {
   notStartedPeriods: number;
 }
 
+const seedProfiles: SalaryProfile[] = [
+  {
+    id: 'SAL-001',
+    employee_id: 'EMP-001',
+    employee: { first_name: 'Aminata', last_name: 'Kamara', email: 'aminata@example.com', department: 'Finance', position: 'Senior Finance Analyst' },
+    basic_salary: 10000,
+    currency: 'SLE',
+    effective_from: '2026-10-01',
+    is_active: true,
+    allowances: [{ id: 'A-1', name: 'Transport', allowance_type: 'fixed', amount: 750, is_taxable: false, is_active: true }],
+    deductions: [{ id: 'D-1', name: 'Pension', deduction_type: 'percentage', percentage: 5, is_mandatory: true, is_active: true }],
+  },
+  {
+    id: 'SAL-002',
+    employee_id: 'EMP-002',
+    employee: { first_name: 'Joseph', last_name: 'Conteh', email: 'joseph@example.com', department: 'Operations', position: 'Operations Manager' },
+    basic_salary: 12500,
+    currency: 'SLE',
+    effective_from: '2026-01-01',
+    is_active: true,
+    allowances: [{ id: 'A-2', name: 'Communication', allowance_type: 'fixed', amount: 500, is_taxable: false, is_active: true }],
+    deductions: [{ id: 'D-2', name: 'Pension', deduction_type: 'percentage', percentage: 5, is_mandatory: true, is_active: true }],
+  },
+  {
+    id: 'SAL-003',
+    employee_id: 'EMP-003',
+    employee: { first_name: 'Hawa', last_name: 'Koroma', email: 'hawa@example.com', department: 'People', position: 'HR Officer' },
+    basic_salary: 8500,
+    currency: 'SLE',
+    effective_from: '2026-03-01',
+    is_active: true,
+    allowances: [],
+    deductions: [{ id: 'D-3', name: 'Pension', deduction_type: 'percentage', percentage: 5, is_mandatory: true, is_active: true }],
+  },
+];
+
+const seedPeriods: PayrollPeriod[] = [
+  { id: 'PAY-SEP-2026', period_name: 'September 2026', start_date: '2026-09-01', end_date: '2026-09-30', pay_date: '2026-09-30', status: 'completed', total_employees: 3, total_amount: 30637.5, is_off_cycle: false },
+];
+
+const buildDemoRecords = (profiles: SalaryProfile[]): PayrollRecord[] =>
+  profiles.map((profile) => {
+    const allowances = profile.allowances.filter((item) => item.is_active).reduce((sum, item) => sum + item.amount, 0);
+    const deductions = profile.deductions.filter((item) => item.is_active).reduce((sum, item) => {
+      if (typeof item.amount === 'number') return sum + item.amount;
+      if (typeof item.percentage === 'number') return sum + (profile.basic_salary * item.percentage) / 100;
+      return sum;
+    }, 0);
+    const gross = profile.basic_salary + allowances;
+    return {
+      id: `REC-${profile.employee_id}`,
+      employee: profile.employee,
+      basic_salary: profile.basic_salary,
+      gross_salary: gross,
+      total_allowances: allowances,
+      total_deductions: deductions,
+      net_salary: gross - deductions,
+      working_days: 22,
+      actual_days_worked: 22,
+      leave_days: 0,
+      overtime_hours: 0,
+      overtime_amount: 0,
+      payment_status: 'processed' as const,
+    };
+  });
+
 export const usePayroll = () => {
   const [payrollPeriods, setPayrollPeriods] = useState<PayrollPeriod[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
@@ -92,74 +158,44 @@ export const usePayroll = () => {
     totalPayrollCost: 0,
     completedPeriods: 0,
     inProgressPeriods: 0,
-    notStartedPeriods: 0
+    notStartedPeriods: 0,
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const demo = isDemoSession();
 
-  // Fetch payroll periods
   const fetchPayrollPeriods = async () => {
+    if (demo) {
+      setPayrollPeriods(readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods));
+      return;
+    }
     try {
-      const { data, error } = await supabase
-        .from('payroll_periods')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const { data, error } = await supabase.from('payroll_periods').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       setPayrollPeriods(data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching payroll periods:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch payroll periods",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to fetch payroll periods', variant: 'destructive' });
     }
   };
 
-  // Fetch salary profiles
   const fetchSalaryProfiles = async () => {
+    if (demo) {
+      setSalaryProfiles(readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles));
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('employee_salary_profiles')
         .select(`
-          id,
-          employee_id,
-          basic_salary,
-          currency,
-          effective_from,
-          effective_to,
-          is_active,
-          employees!inner (
-            first_name,
-            last_name,
-            email,
-            department,
-            position
-          ),
-          salary_allowances (
-            id,
-            name,
-            allowance_type,
-            amount,
-            is_taxable,
-            is_active
-          ),
-          salary_deductions (
-            id,
-            name,
-            deduction_type,
-            amount,
-            percentage,
-            is_mandatory,
-            is_active
-          )
+          id, employee_id, basic_salary, currency, effective_from, effective_to, is_active,
+          employees!inner (first_name, last_name, email, department, position),
+          salary_allowances (id, name, allowance_type, amount, is_taxable, is_active),
+          salary_deductions (id, name, deduction_type, amount, percentage, is_mandatory, is_active)
         `)
         .eq('is_active', true);
-
       if (error) throw error;
-      
-      const formattedProfiles = (data || []).map(profile => ({
+      setSalaryProfiles((data || []).map((profile) => ({
         id: profile.id,
         employee_id: profile.employee_id,
         employee: profile.employees as any,
@@ -168,67 +204,33 @@ export const usePayroll = () => {
         effective_from: profile.effective_from,
         effective_to: profile.effective_to,
         is_active: profile.is_active,
-        allowances: (profile.salary_allowances || []).map((allowance: any) => ({
-          id: allowance.id,
-          name: allowance.name,
-          allowance_type: allowance.allowance_type,
-          amount: allowance.amount,
-          is_taxable: allowance.is_taxable,
-          is_active: allowance.is_active
-        })),
-        deductions: (profile.salary_deductions || []).map((deduction: any) => ({
-          id: deduction.id,
-          name: deduction.name,
-          deduction_type: deduction.deduction_type,
-          amount: deduction.amount,
-          percentage: deduction.percentage,
-          is_mandatory: deduction.is_mandatory,
-          is_active: deduction.is_active
-        }))
-      }));
-
-      setSalaryProfiles(formattedProfiles);
-    } catch (error: any) {
+        allowances: profile.salary_allowances || [],
+        deductions: profile.salary_deductions || [],
+      })));
+    } catch (error) {
       console.error('Error fetching salary profiles:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch salary profiles",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to fetch salary profiles', variant: 'destructive' });
     }
   };
 
-  // Fetch payroll records for a specific period
   const fetchPayrollRecords = async (periodId: string) => {
+    if (demo) {
+      const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+      const records = readDemoData<PayrollRecord[]>(`payroll-records:${periodId}`, buildDemoRecords(profiles));
+      setPayrollRecords(records);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('payroll_records')
         .select(`
-          id,
-          basic_salary,
-          gross_salary,
-          total_allowances,
-          total_deductions,
-          net_salary,
-          working_days,
-          actual_days_worked,
-          leave_days,
-          overtime_hours,
-          overtime_amount,
-          payment_status,
-          employees!inner (
-            first_name,
-            last_name,
-            email,
-            department,
-            position
-          )
+          id, basic_salary, gross_salary, total_allowances, total_deductions, net_salary,
+          working_days, actual_days_worked, leave_days, overtime_hours, overtime_amount, payment_status,
+          employees!inner (first_name, last_name, email, department, position)
         `)
         .eq('payroll_period_id', periodId);
-
       if (error) throw error;
-      
-      const formattedRecords = (data || []).map(record => ({
+      setPayrollRecords((data || []).map((record) => ({
         id: record.id,
         employee: record.employees as any,
         basic_salary: record.basic_salary,
@@ -241,150 +243,129 @@ export const usePayroll = () => {
         leave_days: record.leave_days || 0,
         overtime_hours: record.overtime_hours || 0,
         overtime_amount: record.overtime_amount || 0,
-        payment_status: record.payment_status
-      }));
-
-      setPayrollRecords(formattedRecords);
-    } catch (error: any) {
+        payment_status: record.payment_status,
+      })));
+    } catch (error) {
       console.error('Error fetching payroll records:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch payroll records",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to fetch payroll records', variant: 'destructive' });
     }
   };
 
-  // Calculate payroll summary
   const calculatePayrollSummary = async () => {
+    if (demo) {
+      const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+      const periods = readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods);
+      const records = buildDemoRecords(profiles);
+      setPayrollSummary({
+        totalEmployees: profiles.length,
+        paidEmployees: records.filter((record) => record.payment_status === 'processed').length,
+        unpaidEmployees: records.filter((record) => record.payment_status === 'pending').length,
+        totalPayrollCost: periods.reduce((sum, period) => sum + (period.total_amount || 0), 0),
+        completedPeriods: periods.filter((period) => period.status === 'completed').length,
+        inProgressPeriods: periods.filter((period) => period.status === 'in_progress').length,
+        notStartedPeriods: periods.filter((period) => period.status === 'not_started').length,
+      });
+      return;
+    }
     try {
-      // Get total employees
-      const { count: totalEmployees } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
-
-      // Get payroll periods summary
-      const { data: periods } = await supabase
-        .from('payroll_periods')
-        .select('status, total_amount, total_employees');
-
-      const completedPeriods = periods?.filter(p => p.status === 'completed').length || 0;
-      const inProgressPeriods = periods?.filter(p => p.status === 'in_progress').length || 0;
-      const notStartedPeriods = periods?.filter(p => p.status === 'not_started').length || 0;
-
-      // Get recent payroll records for payment status
-      const { data: recentRecords } = await supabase
-        .from('payroll_records')
-        .select('payment_status')
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
-
-      const paidEmployees = recentRecords?.filter(r => r.payment_status === 'processed').length || 0;
-      const unpaidEmployees = recentRecords?.filter(r => r.payment_status === 'pending').length || 0;
-
-      // Calculate total payroll cost
-      const totalPayrollCost = periods?.reduce((sum, period) => sum + (period.total_amount || 0), 0) || 0;
-
+      const { count: totalEmployees } = await supabase.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'active');
+      const { data: periods } = await supabase.from('payroll_periods').select('status, total_amount, total_employees');
+      const { data: recentRecords } = await supabase.from('payroll_records').select('payment_status').gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       setPayrollSummary({
         totalEmployees: totalEmployees || 0,
-        paidEmployees,
-        unpaidEmployees,
-        totalPayrollCost,
-        completedPeriods,
-        inProgressPeriods,
-        notStartedPeriods
+        paidEmployees: recentRecords?.filter((record) => record.payment_status === 'processed').length || 0,
+        unpaidEmployees: recentRecords?.filter((record) => record.payment_status === 'pending').length || 0,
+        totalPayrollCost: periods?.reduce((sum, period) => sum + (period.total_amount || 0), 0) || 0,
+        completedPeriods: periods?.filter((period) => period.status === 'completed').length || 0,
+        inProgressPeriods: periods?.filter((period) => period.status === 'in_progress').length || 0,
+        notStartedPeriods: periods?.filter((period) => period.status === 'not_started').length || 0,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error calculating payroll summary:', error);
     }
   };
 
-  // Create new payroll period
   const createPayrollPeriod = async (periodData: Omit<PayrollPeriod, 'id'>) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('payroll_periods')
-        .insert([periodData])
-        .select()
-        .single();
+      if (demo) {
+        const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+        const periods = readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods);
+        const records = buildDemoRecords(profiles);
+        const created: PayrollPeriod = {
+          ...periodData,
+          id: `PAY-${Date.now()}`,
+          total_employees: profiles.length,
+          total_amount: records.reduce((sum, record) => sum + record.net_salary, 0),
+        };
+        const next = [created, ...periods];
+        writeDemoData('payroll-periods', next);
+        writeDemoData(`payroll-records:${created.id}`, records.map((record) => ({ ...record, payment_status: 'pending' })));
+        setPayrollPeriods(next);
+        toast({ title: 'Success', description: 'Payroll period created in the demo workspace' });
+        return created;
+      }
 
+      const { data, error } = await supabase.from('payroll_periods').insert([periodData]).select().single();
       if (error) throw error;
-
       await fetchPayrollPeriods();
-      toast({
-        title: "Success",
-        description: "Payroll period created successfully",
-      });
-
+      toast({ title: 'Success', description: 'Payroll period created successfully' });
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating payroll period:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create payroll period",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to create payroll period', variant: 'destructive' });
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Process payroll for a period
   const processPayroll = async (periodId: string) => {
     setLoading(true);
     try {
-      // Update period status to in_progress
-      await supabase
-        .from('payroll_periods')
-        .update({ status: 'in_progress' })
-        .eq('id', periodId);
+      if (demo) {
+        const periods = readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods);
+        const next = periods.map((period) => period.id === periodId ? { ...period, status: 'completed' as const } : period);
+        const records = readDemoData<PayrollRecord[]>(`payroll-records:${periodId}`, buildDemoRecords(readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles)));
+        writeDemoData('payroll-periods', next);
+        writeDemoData(`payroll-records:${periodId}`, records.map((record) => ({ ...record, payment_status: 'processed' as const })));
+        setPayrollPeriods(next);
+        setPayrollRecords(records.map((record) => ({ ...record, payment_status: 'processed' as const })));
+        await calculatePayrollSummary();
+        toast({ title: 'Payroll processed', description: 'Demo payroll completed and records were updated.' });
+        return;
+      }
 
-      // Here you would implement the actual payroll calculation logic
-      // For now, we'll simulate the process
-      
-      toast({
-        title: "Success",
-        description: "Payroll processing started",
-      });
-
+      await supabase.from('payroll_periods').update({ status: 'in_progress' }).eq('id', periodId);
+      toast({ title: 'Success', description: 'Payroll processing started' });
       await fetchPayrollPeriods();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error processing payroll:', error);
-      toast({
-        title: "Error",
-        description: "Failed to process payroll",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to process payroll', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Update salary profile
   const updateSalaryProfile = async (profileId: string, updates: Partial<SalaryProfile>) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('employee_salary_profiles')
-        .update(updates)
-        .eq('id', profileId);
+      if (demo) {
+        const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+        const next = profiles.map((profile) => profile.id === profileId ? { ...profile, ...updates } : profile);
+        writeDemoData('salary-profiles', next);
+        setSalaryProfiles(next);
+        toast({ title: 'Success', description: 'Salary profile updated in the demo workspace' });
+        return;
+      }
 
+      const { error } = await supabase.from('employee_salary_profiles').update(updates).eq('id', profileId);
       if (error) throw error;
-
       await fetchSalaryProfiles();
-      toast({
-        title: "Success",
-        description: "Salary profile updated successfully",
-      });
-    } catch (error: any) {
+      toast({ title: 'Success', description: 'Salary profile updated successfully' });
+    } catch (error) {
       console.error('Error updating salary profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update salary profile",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to update salary profile', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -408,6 +389,6 @@ export const usePayroll = () => {
     createPayrollPeriod,
     processPayroll,
     updateSalaryProfile,
-    calculatePayrollSummary
+    calculatePayrollSummary,
   };
 };

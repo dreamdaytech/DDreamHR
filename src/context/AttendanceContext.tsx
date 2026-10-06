@@ -14,6 +14,7 @@ import { useCheckInOutService } from './attendance/checkInOutService';
 import { useBreakService } from './attendance/breakService';
 import { useRegularizationService } from './attendance/regularizationService';
 import { useAttendanceFetchService } from './attendance/attendanceFetchService';
+import { isDemoSession, readDemoData } from '@/lib/demoStore';
 
 // Mock data for development
 const MOCK_ATTENDANCE_SETTINGS: AttendanceSettings = {
@@ -133,19 +134,25 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Fetch attendance records on load
   useEffect(() => {
     if (user) {
+      const storedBreaks = isDemoSession() ? readDemoData<BreakRecord[]>('attendance-breaks', []) : breakRecords;
+      if (isDemoSession()) {
+        setBreakRecords(storedBreaks);
+        setRegularizationRequests(readDemoData<RegularizationRequest[]>('attendance-regularization', []));
+      }
+
       const today = new Date();
       fetchAttendanceByDate(today).then((records) => {
         if (records.length > 0) {
           setTodayAttendance(records[0]);
-          
-          // Check for active breaks
-          const activeBreak = breakRecords.find(b => 
+
+          const activeBreak = storedBreaks.find((b) =>
             b.attendanceId === records[0].id && !b.endTime
           );
-          
-          if (activeBreak) {
-            setCurrentBreak(activeBreak);
-          }
+
+          setCurrentBreak(activeBreak || null);
+        } else {
+          setTodayAttendance(null);
+          setCurrentBreak(null);
         }
         setIsLoading(false);
       });

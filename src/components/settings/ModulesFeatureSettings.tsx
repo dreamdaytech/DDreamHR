@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -7,224 +6,107 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Puzzle, Clock, Calendar, Users, BarChart3, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 
-export const ModulesFeatureSettings: React.FC = () => {
+type ModuleSetting = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description: string;
+  features: string[];
+};
+
+const seedModules: ModuleSetting[] = [
+  { id: 'attendance', name: 'Attendance Management', enabled: true, description: 'Check-in/out, breaks and attendance reporting', features: ['Check-in/out', 'Break tracking', 'Reports'] },
+  { id: 'leave', name: 'Leave Tracking', enabled: true, description: 'Leave requests, approvals and balances', features: ['Applications', 'Approvals', 'Calendar'] },
+  { id: 'time_tracking', name: 'Time Tracking', enabled: true, description: 'Time logs and timesheets', features: ['Timers', 'Timesheets', 'Exports'] },
+  { id: 'employees', name: 'Employee Management', enabled: true, description: 'Employee records and lifecycle work', features: ['Directory', 'Employee changes', 'Lifecycle'] },
+  { id: 'reports', name: 'Reports & Analytics', enabled: true, description: 'Operational reports and exports', features: ['Attendance', 'Payroll', 'Overtime'] },
+  { id: 'performance', name: 'Performance Management', enabled: false, description: 'Performance reviews and goals', features: ['Reviews', 'Goals'] },
+];
+
+const seedDepartmentAccess: Record<string, string[]> = {
+  Engineering: ['attendance', 'leave', 'time_tracking', 'reports'],
+  HR: ['attendance', 'leave', 'employees', 'reports'],
+  Sales: ['attendance', 'leave', 'reports'],
+  Finance: ['attendance', 'reports'],
+};
+
+export const ModulesFeatureSettings = () => {
   const { toast } = useToast();
-  
-  const [modules, setModules] = useState([
-    { 
-      id: 'attendance', 
-      name: 'Attendance Management', 
-      icon: Clock, 
-      enabled: true, 
-      description: 'Track employee check-ins, check-outs, and attendance reports',
-      features: ['Check-in/out', 'Break tracking', 'Location validation', 'Reports']
-    },
-    { 
-      id: 'leave', 
-      name: 'Leave Tracking', 
-      icon: Calendar, 
-      enabled: true, 
-      description: 'Manage leave requests, approvals, and leave balances',
-      features: ['Leave applications', 'Approval workflow', 'Balance tracking', 'Calendar view']
-    },
-    { 
-      id: 'time_tracking', 
-      name: 'Time Tracking', 
-      icon: Clock, 
-      enabled: true, 
-      description: 'Project time tracking and timesheet management',
-      features: ['Project timers', 'Timesheets', 'Task tracking', 'Billing']
-    },
-    { 
-      id: 'employees', 
-      name: 'Employee Management', 
-      icon: Users, 
-      enabled: true, 
-      description: 'Employee directory and profile management',
-      features: ['Employee directory', 'Profile management', 'Department structure', 'Org chart']
-    },
-    { 
-      id: 'reports', 
-      name: 'Reports & Analytics', 
-      icon: BarChart3, 
-      enabled: true, 
-      description: 'Generate reports and analytics dashboards',
-      features: ['Attendance reports', 'Performance analytics', 'Custom reports', 'Data export']
-    },
-    { 
-      id: 'performance', 
-      name: 'Performance Management', 
-      icon: BarChart3, 
-      enabled: false, 
-      description: 'Employee performance reviews and goal tracking',
-      features: ['Performance reviews', 'Goal setting', '360 feedback', 'Evaluations']
-    }
-  ]);
+  const [modules, setModules] = useState<ModuleSetting[]>(() => readDemoData('settings-modules', seedModules));
+  const [departmentAccess, setDepartmentAccess] = useState<Record<string, string[]>>(() => readDemoData('settings-department-access', seedDepartmentAccess));
+  const [features, setFeatures] = useState(() => readDemoData('settings-feature-toggles', { mobileSupport: true, bulkOperations: true, auditTrail: true }));
 
-  const [departmentAccess, setDepartmentAccess] = useState({
-    'Engineering': ['attendance', 'leave', 'time_tracking', 'reports'],
-    'HR': ['attendance', 'leave', 'employees', 'reports', 'performance'],
-    'Sales': ['attendance', 'leave', 'reports'],
-    'Finance': ['attendance', 'reports']
-  });
-
-  const handleModuleToggle = (moduleId: string) => {
-    setModules(modules.map(module => 
-      module.id === moduleId 
-        ? { ...module, enabled: !module.enabled }
-        : module
-    ));
+  const toggleDepartmentModule = (department: string, moduleId: string) => {
+    setDepartmentAccess((current) => {
+      const currentAccess = current[department] || [];
+      const nextAccess = currentAccess.includes(moduleId)
+        ? currentAccess.filter((id) => id !== moduleId)
+        : [...currentAccess, moduleId];
+      return { ...current, [department]: nextAccess };
+    });
   };
 
   const handleSave = () => {
-    toast({
-      title: "Module Settings Updated",
-      description: "Module and feature settings have been saved successfully.",
-    });
+    writeDemoData('settings-modules', modules);
+    writeDemoData('settings-department-access', departmentAccess);
+    writeDemoData('settings-feature-toggles', features);
+    toast({ title: 'Module settings saved', description: 'Module access and feature toggles were saved in the demo workspace.' });
   };
 
   return (
     <div className="space-y-6">
-      {/* Module Management */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Puzzle className="h-5 w-5 text-secondary" />
-            Module Management
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Puzzle className="h-5 w-5 text-secondary" />Module Management</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-3">Available Modules</h3>
-            <p className="text-sm text-muted-foreground mb-4">Enable or disable modules for your organization</p>
-          </div>
-          <div className="space-y-4">
-            {modules.map((module) => {
-              const IconComponent = module.icon;
-              return (
-                <div key={module.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center mt-1">
-                        <IconComponent className="h-5 w-5 text-secondary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{module.name}</span>
-                          <Badge variant={module.enabled ? "default" : "secondary"}>
-                            {module.enabled ? "Enabled" : "Disabled"}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{module.description}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {module.features.map((feature) => (
-                            <Badge key={feature} variant="outline" className="text-xs">
-                              {feature}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <Switch 
-                      checked={module.enabled}
-                      onCheckedChange={() => handleModuleToggle(module.id)}
-                    />
+          {modules.map((module) => (
+            <div key={module.id} className="rounded-lg border p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="font-medium">{module.name}</span>
+                    <Badge variant={module.enabled ? 'default' : 'secondary'}>{module.enabled ? 'Enabled' : 'Disabled'}</Badge>
                   </div>
+                  <p className="text-sm text-muted-foreground">{module.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">{module.features.map((feature) => <Badge key={feature} variant="outline" className="text-xs">{feature}</Badge>)}</div>
                 </div>
-              );
-            })}
-          </div>
+                <Switch checked={module.enabled} onCheckedChange={() => setModules((current) => current.map((item) => item.id === module.id ? { ...item, enabled: !item.enabled } : item))} />
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Department Access */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-secondary" />
-            Department Access Control
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-3">Module Access by Department</h3>
-            <p className="text-sm text-muted-foreground mb-4">Configure which modules each department can access</p>
-          </div>
-          <div className="space-y-4">
-            {Object.entries(departmentAccess).map(([department, accessModules]) => (
-              <div key={department} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium">{department}</span>
-                  <Button variant="outline" size="sm" className="hover:bg-secondary hover:text-white">
-                    Configure
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {accessModules.map((moduleId) => {
-                    const module = modules.find(m => m.id === moduleId);
-                    return module ? (
-                      <Badge key={moduleId} variant="outline" className="text-xs">
-                        {module.name}
-                      </Badge>
-                    ) : null;
-                  })}
-                </div>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-secondary" />Department Access</CardTitle></CardHeader>
+        <CardContent className="space-y-5">
+          {Object.entries(departmentAccess).map(([department, access]) => (
+            <div key={department} className="rounded-lg border p-4">
+              <p className="mb-3 font-medium">{department}</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {modules.map((module) => (
+                  <label key={module.id} className="flex items-center justify-between gap-3 rounded-md bg-muted/40 p-3 text-sm">
+                    <span>{module.name}</span>
+                    <Switch checked={access.includes(module.id)} onCheckedChange={() => toggleDepartmentModule(department, module.id)} />
+                  </label>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Feature Toggles */}
       <Card>
-        <CardHeader>
-          <CardTitle>Advanced Feature Toggles</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Platform Feature Toggles</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Mobile App Support</Label>
-                <p className="text-sm text-muted-foreground">Enable mobile application features</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Offline Mode</Label>
-                <p className="text-sm text-muted-foreground">Allow offline functionality where possible</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Advanced Analytics</Label>
-                <p className="text-sm text-muted-foreground">Enable advanced reporting and analytics features</p>
-              </div>
-              <Switch />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>API Access</Label>
-                <p className="text-sm text-muted-foreground">Allow external API integrations</p>
-              </div>
-              <Switch />
-            </div>
-          </div>
+          <div className="flex items-center justify-between"><div><Label>Mobile support</Label><p className="text-sm text-muted-foreground">Enable mobile-oriented navigation and layouts.</p></div><Switch checked={features.mobileSupport} onCheckedChange={(checked) => setFeatures({ ...features, mobileSupport: checked })} /></div>
+          <div className="flex items-center justify-between"><div><Label>Bulk operations</Label><p className="text-sm text-muted-foreground">Show bulk-action capabilities where supported.</p></div><Switch checked={features.bulkOperations} onCheckedChange={(checked) => setFeatures({ ...features, bulkOperations: checked })} /></div>
+          <div className="flex items-center justify-between"><div><Label>Audit trail</Label><p className="text-sm text-muted-foreground">Track demo configuration changes locally.</p></div><Switch checked={features.auditTrail} onCheckedChange={(checked) => setFeatures({ ...features, auditTrail: checked })} /></div>
         </CardContent>
       </Card>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
-          <Save className="h-4 w-4 mr-2" />
-          Save Settings
-        </Button>
-      </div>
+      <div className="flex justify-end"><Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save Settings</Button></div>
     </div>
   );
 };

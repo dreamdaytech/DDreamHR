@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { readDemoData, writeDemoData } from "@/lib/demoStore";
 import { useAuth } from "@/context/AuthContext";
 import { ProjectTaskManager } from "./ProjectTaskManager";
 import { TimerControls } from "./TimerControls";
@@ -313,9 +314,24 @@ const TimeTracker = () => {
       return;
     }
 
+    const log = {
+      id: Date.now().toString(),
+      userId: user?.id || 'demo-user',
+      date: date.toISOString().split('T')[0],
+      project,
+      task,
+      description,
+      seconds: timer,
+      hours: Number((timer / 3600).toFixed(2)),
+      billable: isBillable,
+      createdAt: new Date().toISOString(),
+    };
+    const existing = readDemoData<any[]>('time-logs', []);
+    writeDemoData('time-logs', [log, ...existing]);
+
     toast({
       title: "Time Log Saved",
-      description: `${formatTime(timer)} logged for ${project}`,
+      description: `${formatTime(timer)} logged for ${project || 'unassigned project'}`,
     });
     
     resetTimer();
