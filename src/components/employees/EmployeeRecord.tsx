@@ -69,6 +69,7 @@ const EmployeeRecord = () => {
     ...(storedEmployee || {}),
     manager: storedEmployee?.reportingManager || storedEmployee?.manager || seedEmployee.manager,
     employmentType: storedEmployee?.employmentType || seedEmployee.employmentType,
+    startDate: storedEmployee?.joiningDate || storedEmployee?.startDate || seedEmployee.startDate,
     lifecycle: storedEmployee?.status === 'Onboarding' ? 'Onboarding' : storedEmployee?.status === 'Terminated' ? 'Former Employee' : seedEmployee.lifecycle,
     condition: storedEmployee?.status === 'On Leave' ? 'On Leave' : storedEmployee?.status === 'Probation' ? 'Probation' : seedEmployee.condition,
   };
