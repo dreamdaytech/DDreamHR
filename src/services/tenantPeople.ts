@@ -291,23 +291,43 @@ export const createEmployeeChange = async (draft: any) => {
 
   if (error) throw error;
 
-  await supabase.from('workflow_requests').insert({
+  const { data: workflow, error: workflowError } = await supabase
+    .from('workflow_requests')
+    .insert({
+      business_id: context.businessId,
+      request_type: 'employee_change',
+      source_type: 'employee_change',
+      source_id: data.id,
+      employee_id: employeeId,
+      submitted_by: context.userId,
+      status: 'pending',
+      payload: {
+        change_type: draft.type,
+        effective_date: draft.effectiveDate,
+        before: draft.oldValue,
+        after: draft.newValue,
+        reason: draft.reason,
+      },
+      submitted_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (workflowError) throw workflowError;
+
+  const { error: workItemError } = await supabase.from('work_items').insert({
     business_id: context.businessId,
-    request_type: 'employee_change',
-    source_type: 'employee_change',
-    source_id: data.id,
-    employee_id: employeeId,
-    submitted_by: context.userId,
-    status: 'pending',
-    payload: {
-      change_type: draft.type,
-      effective_date: draft.effectiveDate,
-      before: draft.oldValue,
-      after: draft.newValue,
-      reason: draft.reason,
-    },
-    submitted_at: new Date().toISOString(),
+    assignee_role: 'hr',
+    category: 'employee_change',
+    source_type: 'workflow_request',
+    source_id: workflow.id,
+    title: 'Employee change approval',
+    description: `${draft.type}: ${draft.employee || 'Employee'} · effective ${draft.effectiveDate}`,
+    status: 'open',
+    priority: 'normal',
   });
+
+  if (workItemError) throw workItemError;
 
   return data;
 };
