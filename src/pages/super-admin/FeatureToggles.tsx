@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { readDemoData, writeDemoData } from '@/lib/demoStore';
 
 const initialFeatures = [
   { id: 'ai-reports', name: 'AI-Powered Reports', description: 'Enable generative AI for creating reports.', enabled: true, tags: ['New', 'Beta'] },
@@ -14,10 +15,14 @@ const initialFeatures = [
 ];
 
 const FeatureToggles: React.FC = () => {
-  const [features, setFeatures] = useState(initialFeatures);
+  const [features, setFeatures] = useState(() => readDemoData('platform-feature-flags', initialFeatures));
 
   const handleToggle = (id: string) => {
-    setFeatures(features.map(f => f.id === id ? { ...f, enabled: !f.enabled } : f));
+    setFeatures((current) => {
+      const next = current.map((f) => f.id === id ? { ...f, enabled: !f.enabled } : f);
+      writeDemoData('platform-feature-flags', next);
+      return next;
+    });
   };
 
   return (
