@@ -87,7 +87,10 @@ const AuthForm = () => {
           description: "Welcome back to DDreamHR",
         });
         
-        if (loggedInUser.role !== 'super_admin' && !loggedInUser.businessId) {
+        const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+        if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+          navigate(returnTo);
+        } else if (loggedInUser.role !== 'super_admin' && !loggedInUser.businessId) {
           navigate('/setup');
         } else if (loggedInUser.lifecycleState === 'onboarding' || loggedInUser.lifecycleState === 'preboarding') {
           navigate('/hr-lifecycle/portal');
