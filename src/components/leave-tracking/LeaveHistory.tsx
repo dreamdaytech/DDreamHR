@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/context/AuthContext';
-import { downloadTextFile, readDemoData, toCsv } from '@/lib/demoStore';
+import { downloadTextFile, isDemoSession, readDemoData, toCsv } from '@/lib/demoStore';
+import { listLeaveHistory } from '@/services/tenantLeave';
 import { LeaveDetailsModal } from './components/LeaveDetailsModal';
 import { 
   History, 
@@ -32,6 +33,22 @@ export const LeaveHistory = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isManagerOrAbove = user?.role && ['manager', 'hr', 'admin'].includes(user.role);
+  const [realPersonalLeaveHistory, setRealPersonalLeaveHistory] = useState<any[]>([]);
+  const [realTeamLeaveHistory, setRealTeamLeaveHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isDemoSession()) return;
+
+    void Promise.all([
+      listLeaveHistory(false),
+      isManagerOrAbove ? listLeaveHistory(true) : Promise.resolve([]),
+    ]).then(([personal, team]) => {
+      setRealPersonalLeaveHistory(personal);
+      setRealTeamLeaveHistory(team.filter((leave: any) => !personal.some((mine: any) => mine.id === leave.id)));
+    }).catch((error) => {
+      console.error('Could not load leave history', error);
+    });
+  }, [isManagerOrAbove]);
 
   const seedPersonalLeaveHistory = [
     {
@@ -82,16 +99,19 @@ export const LeaveHistory = () => {
   ];
 
   const storedLeaveRequests = readDemoData<any[]>('leave-requests', []);
-  const personalLeaveHistory = [
-    ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
-    ...seedPersonalLeaveHistory,
-  ];
+  const personalLeaveHistory = isDemoSession()
+    ? [
+        ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
+        ...seedPersonalLeaveHistory,
+      ]
+    : realPersonalLeaveHistory;
 
-  const teamLeaveHistory = [
-    ...storedLeaveRequests
-      .filter((leave) => leave.employeeId !== user?.id)
-      .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
-    {
+  const teamLeaveHistory = isDemoSession()
+    ? [
+        ...storedLeaveRequests
+          .filter((leave) => leave.employeeId !== user?.id)
+          .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
+        {
       id: 4,
       type: 'Annual Leave',
       employeeName: 'Sarah Johnson',
@@ -115,7 +135,8 @@ export const LeaveHistory = () => {
       approvedBy: null,
       reason: 'Medical procedure'
     }
-  ];
+      ]
+    : realTeamLeaveHistory;
 
   const getStatusColor = (status: string) => {
     switch (status) {
