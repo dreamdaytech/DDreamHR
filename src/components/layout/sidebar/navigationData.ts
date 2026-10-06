@@ -197,7 +197,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
       name: 'Analytics',
       icon: BarChart3,
       path: '/reports',
-      roles: regularRoles
+      roles: managerRoles
     }
   );
 
