@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { advanceEmployeeChange, createEmployeeChange, listEmployeeChanges } from '@/services/tenantPeople';
 import { ArrowRight, CalendarClock, CircleCheck, Clock3, RefreshCw, UserRound } from 'lucide-react';
 
 type ChangeStatus = 'pending' | 'approved' | 'scheduled' | 'completed';
@@ -89,7 +90,46 @@ const statusMeta: Record<ChangeStatus, { label: string; icon: typeof Clock3 }> =
 const EmployeeChanges = () => {
   const { toast } = useToast();
   const [tab, setTab] = useState<ChangeStatus | 'all'>('all');
-  const [changes, setChanges] = useState<EmployeeChange[]>(() => readDemoData('employee-changes', seedChanges));
+  const [changes, setChanges] = useState<EmployeeChange[]>(() =>
+    isDemoSession() ? readDemoData('employee-changes', seedChanges) : []
+  );
+
+  const refreshChanges = async () => {
+    if (isDemoSession()) {
+      setChanges(readDemoData('employee-changes', seedChanges));
+      return;
+    }
+
+    try {
+      const rows = await listEmployeeChanges();
+      setChanges(rows.map((row: any) => ({
+        id: row.id,
+        employee: `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim(),
+        employeeId: row.employee_id,
+        type: String(row.change_type || 'other').split('_').map((part: string) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+        effectiveDate: row.effective_date,
+        oldValue: row.before_value?.value ?? JSON.stringify(row.before_value || {}),
+        newValue: row.after_value?.value ?? JSON.stringify(row.after_value || {}),
+        reason: row.reason,
+        status: row.status,
+        approvals: row.status === 'pending'
+          ? ['Manager pending', 'HR pending']
+          : row.status === 'approved'
+            ? ['Manager ✓', 'HR ✓']
+            : ['Workflow complete'],
+      })) as EmployeeChange[]);
+    } catch (error) {
+      toast({
+        title: 'Could not load employee changes',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    void refreshChanges();
+  }, []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState({
     employee: '',
@@ -108,10 +148,10 @@ const EmployeeChanges = () => {
 
   const saveChanges = (next: EmployeeChange[]) => {
     setChanges(next);
-    writeDemoData('employee-changes', next);
+    if (isDemoSession()) writeDemoData('employee-changes', next);
   };
 
-  const createChange = () => {
+  const createChange = async () => {
     if (!draft.employee.trim() || !draft.effectiveDate || !draft.oldValue.trim() || !draft.newValue.trim() || !draft.reason.trim()) {
       toast({
         title: 'Complete the change request',
@@ -121,36 +161,74 @@ const EmployeeChanges = () => {
       return;
     }
 
-    const newChange: EmployeeChange = {
-      id: `CHG-${Date.now().toString().slice(-6)}`,
-      employee: draft.employee.trim(),
-      employeeId: draft.employeeId.trim() || '1',
-      type: draft.type,
-      effectiveDate: draft.effectiveDate,
-      oldValue: draft.oldValue.trim(),
-      newValue: draft.newValue.trim(),
-      reason: draft.reason.trim(),
-      status: 'pending',
-      approvals: ['Manager pending', 'HR pending'],
-    };
+    try {
+      if (isDemoSession()) {
+        const newChange: EmployeeChange = {
+          id: `CHG-${Date.now().toString().slice(-6)}`,
+          employee: draft.employee.trim(),
+          employeeId: draft.employeeId.trim() || '1',
+          type: draft.type,
+          effectiveDate: draft.effectiveDate,
+          oldValue: draft.oldValue.trim(),
+          newValue: draft.newValue.trim(),
+          reason: draft.reason.trim(),
+          status: 'pending',
+          approvals: ['Manager pending', 'HR pending'],
+        };
+        saveChanges([newChange, ...changes]);
+      } else {
+        await createEmployeeChange(draft);
+        await refreshChanges();
+      }
 
-    saveChanges([newChange, ...changes]);
-    setDialogOpen(false);
-    setDraft({ employee: '', employeeId: '1', type: 'Promotion', effectiveDate: '', oldValue: '', newValue: '', reason: '' });
-    setTab('pending');
-    toast({ title: 'Employee change created', description: `${newChange.id} is now awaiting approval.` });
+      setDialogOpen(false);
+      setDraft({ employee: '', employeeId: '1', type: 'Promotion', effectiveDate: '', oldValue: '', newValue: '', reason: '' });
+      setTab('pending');
+      toast({ title: 'Employee change created', description: 'The change is now awaiting approval.' });
+    } catch (error) {
+      toast({
+        title: 'Could not create employee change',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const advanceStatus = (id: string) => {
-    const next = changes.map((change) => {
-      if (change.id !== id) return change;
-      if (change.status === 'pending') return { ...change, status: 'approved' as const, approvals: ['Manager ✓', 'HR ✓'] };
-      if (change.status === 'approved') return { ...change, status: 'scheduled' as const };
-      if (change.status === 'scheduled') return { ...change, status: 'completed' as const };
-      return change;
-    });
-    saveChanges(next);
-    toast({ title: 'Change updated', description: 'The employee change moved to its next workflow stage.' });
+  const advanceStatus = async (id: string) => {
+    const current = changes.find((change) => change.id === id);
+    if (!current) return;
+
+    const nextStatus = current.status === 'pending'
+      ? 'approved'
+      : current.status === 'approved'
+        ? 'scheduled'
+        : current.status === 'scheduled'
+          ? 'completed'
+          : null;
+
+    if (!nextStatus) return;
+
+    try {
+      if (isDemoSession()) {
+        const next = changes.map((change) => {
+          if (change.id !== id) return change;
+          if (nextStatus === 'approved') return { ...change, status: nextStatus, approvals: ['Manager ✓', 'HR ✓'] };
+          return { ...change, status: nextStatus };
+        });
+        saveChanges(next);
+      } else {
+        await advanceEmployeeChange(id, nextStatus);
+        await refreshChanges();
+      }
+
+      toast({ title: 'Change updated', description: 'The employee change moved to its next workflow stage.' });
+    } catch (error) {
+      toast({
+        title: 'Could not update change',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
