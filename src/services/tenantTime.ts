@@ -313,7 +313,9 @@ export const submitTenantTimesheet = async (timesheetId: string) => {
     .eq('source_id', timesheetId)
     .maybeSingle();
 
-  if (!existingWorkflow) {
+  let workflowId = existingWorkflow?.id || null;
+
+  if (!workflowId) {
     const { data: workflow, error: workflowError } = await supabase
       .from('workflow_requests')
       .insert({
@@ -335,25 +337,20 @@ export const submitTenantTimesheet = async (timesheetId: string) => {
       .single();
 
     if (workflowError) throw workflowError;
-
-    await supabase.from('work_items').insert({
-      business_id: context.businessId,
-      assignee_user_id: data.submitted_to,
-      assignee_role: data.submitted_to ? null : 'manager',
-      category: 'timesheet',
-      source_type: 'workflow_request',
-      source_id: workflow.id,
-      title: 'Timesheet approval',
-      description: `${data.period_start} to ${data.period_end}`,
-      status: 'open',
-      priority: 'normal',
-    });
+    workflowId = workflow.id;
   } else {
-    await supabase
-      .from('workflow_requests')
-      .update({ status: 'pending', completed_at: null })
-      .eq('id', existingWorkflow.id);
+    const { error: resubmitError } = await (supabase as any).rpc('resubmit_workflow_request', {
+      target_workflow_id: workflowId,
+    });
+    if (resubmitError) throw resubmitError;
   }
+
+  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+    target_workflow_id: workflowId,
+    preferred_assignee_user_id: data.submitted_to || null,
+    preferred_assignee_role: data.submitted_to ? null : 'manager',
+  });
+  if (routeError) throw routeError;
 
   return data;
 };
