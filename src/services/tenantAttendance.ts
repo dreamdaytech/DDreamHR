@@ -297,7 +297,7 @@ export const decideRegularizationRequest = async (
 
   // The database function authorizes the reviewer, locks the request, applies
   // the attendance mutation, and changes request status in one transaction.
-  const { data, error } = await supabase.rpc('decide_attendance_regularization', {
+  const { error } = await supabase.rpc('decide_attendance_regularization', {
     p_request_id: requestId,
     p_action: action,
     p_review_comment: null,
