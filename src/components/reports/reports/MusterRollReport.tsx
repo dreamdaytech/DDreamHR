@@ -113,7 +113,7 @@ export const MusterRollReport: React.FC<MusterRollReportProps> = ({
     };
 
     fetchData();
-  }, [startDate, endDate, department, location, employee]);
+  }, [startDate, endDate, department, location, employee, userRole]);
 
   // Check if user has proper access
   if (userRole !== 'admin' && userRole !== 'hr') {
