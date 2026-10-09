@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, CheckCircle } from "lucide-react";
@@ -74,11 +74,11 @@ const TimeTracker = () => {
 
   const canManageProjects = hasRole(['admin', 'hr', 'manager']);
 
-  const getProjectTasks = (projectName: string) => {
+  const getProjectTasks = useCallback((projectName: string) => {
     const projectObj = projects.find(p => p.name === projectName);
     if (!projectObj) return [];
     return tasks.filter(t => t.projectId === projectObj.id && t.status === 'active');
-  };
+  }, [projects, tasks]);
 
   // Validation functions
   const validateProject = (projectName: string) => {
@@ -98,7 +98,7 @@ const TimeTracker = () => {
     return true;
   };
 
-  const validateTask = (taskName: string) => {
+  const validateTask = useCallback((taskName: string) => {
     if (!taskName.trim()) {
       setTaskValidation({ isValid: false, message: "Task name is required" });
       return false;
@@ -121,7 +121,7 @@ const TimeTracker = () => {
     
     setTaskValidation({ isValid: true, message: "" });
     return true;
-  };
+  }, [getProjectTasks, project]);
 
   useEffect(() => {
     if (projectInput) {
@@ -133,7 +133,7 @@ const TimeTracker = () => {
     if (taskInput && project) {
       validateTask(taskInput);
     }
-  }, [taskInput, project]);
+  }, [taskInput, project, validateTask]);
 
   // Timer management functions
   const startTaskTimer = (taskId: string) => {
