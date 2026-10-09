@@ -19,10 +19,18 @@ import {
   Eye
 } from 'lucide-react';
 
+type LeaveTimelineItem = { date: string; action: string; by: string; comment?: string };
+type LeaveApprovalRequest = {
+  id: string | number; employee?: string; employeeName?: string; employeeId: string; type: string;
+  startDate: string; endDate: string; days: number; reason: string; appliedDate: string;
+  currentBalance: number; afterLeaveBalance: number; documents: string[]; status?: string;
+  timeline?: LeaveTimelineItem[]; approvedBy?: string;
+};
+
 export const LeaveApprovalManager = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveApprovalRequest | null>(null);
   const [comments, setComments] = useState('');
 
   const seedPendingRequests = [
@@ -70,9 +78,9 @@ export const LeaveApprovalManager = () => {
     }
   ];
 
-  const [pendingRequests, setPendingRequests] = useState<any[]>(() => {
+  const [pendingRequests, setPendingRequests] = useState<LeaveApprovalRequest[]>(() => {
     if (!isDemoSession()) return [];
-    const stored = readDemoData<any[]>('leave-requests', []).filter((request) => request.status === 'pending');
+    const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []).filter((request) => request.status === 'pending');
     return stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' }));
   });
 
