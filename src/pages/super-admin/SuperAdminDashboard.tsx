@@ -386,7 +386,7 @@ const SuperAdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(activities && activities.length > 0) ? activities.map((activity: any) => (
+                {(activities && activities.length > 0) ? activities.map((activity) => (
                   <div key={activity.id} className="flex items-center space-x-4 p-3 border rounded-lg">
                     <div className={`${getStatusColor(activity.status)}`}>
                       {getActivityIcon(activity.type)}
