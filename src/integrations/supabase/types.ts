@@ -3593,6 +3593,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decide_attendance_regularization: {
+        Args: { p_action: string; p_request_id: string; p_review_comment?: string | null }
+        Returns: string
+      }
       accept_employee_invitation: {
         Args: { invitation_token: string }
         Returns: Json
