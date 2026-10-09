@@ -124,7 +124,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
     
     toast({
       title: "Leave Type Updated",
-      description: `${leaveType.label} has been ${(leaveType as any).active ? 'deactivated' : 'activated'}.`
+      description: `${leaveType.label} has been ${leaveType.active ? 'deactivated' : 'activated'}.`
     });
   };
 
@@ -226,11 +226,11 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium">{leaveType.label}</h3>
-                  <Badge variant={(leaveType as any).isPaid ? 'default' : 'secondary'}>
-                    {(leaveType as any).isPaid ? 'Paid' : 'Unpaid'}
+                  <Badge variant={leaveType.isPaid ? 'default' : 'secondary'}>
+                    {leaveType.isPaid ? 'Paid' : 'Unpaid'}
                   </Badge>
-                  <Badge variant={(leaveType as any).active ? 'default' : 'destructive'}>
-                    {(leaveType as any).active ? 'Active' : 'Inactive'}
+                  <Badge variant={leaveType.active ? 'default' : 'destructive'}>
+                    {leaveType.active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -243,7 +243,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
                   size="sm"
                   onClick={() => toggleActive(leaveType)}
                 >
-                  {(leaveType as any).active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {leaveType.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
                 <Button
                   variant="ghost"
