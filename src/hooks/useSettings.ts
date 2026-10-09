@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { createErrorHandler } from './settings/utils';
@@ -25,14 +25,14 @@ export const useSettings = () => {
   const hasHRAccess = hasAdminAccess;
 
   // Create error handler
-  const handleError = createErrorHandler(toast);
+  const handleError = useMemo(() => createErrorHandler(toast), [toast]);
 
   // Create service instances
-  const userSettingsService = new UserSettingsService(handleError);
-  const systemSettingsService = new SystemSettingsService(handleError);
+  const userSettingsService = useMemo(() => new UserSettingsService(handleError), [handleError]);
+  const systemSettingsService = useMemo(() => new SystemSettingsService(handleError), [handleError]);
 
   // Fetch functions with proper user ID handling
-  const fetchUserSettings = async (userId?: string) => {
+  const fetchUserSettings = useCallback(async (userId?: string) => {
     // Use proper user ID from auth context
     const targetUserId = userId || user?.id;
     if (!targetUserId) {
@@ -47,9 +47,9 @@ export const useSettings = () => {
 
     const data = await userSettingsService.fetchUserSettings(String(targetUserId));
     setUserSettings(data);
-  };
+  }, [demo, user?.id, userSettingsService]);
 
-  const fetchUserProfile = async (userId?: string) => {
+  const fetchUserProfile = useCallback(async (userId?: string) => {
     // Use proper user ID from auth context
     const targetUserId = userId || user?.id;
     if (!targetUserId) {
@@ -64,16 +64,16 @@ export const useSettings = () => {
 
     const data = await userSettingsService.fetchUserProfile(String(targetUserId));
     setUserProfile(data);
-  };
+  }, [demo, user?.id, userSettingsService]);
 
-  const fetchSystemSettings = async () => {
+  const fetchSystemSettings = useCallback(async () => {
     if (demo) {
       setSystemSettings(readDemoData<SystemSettings[]>('system-settings', []));
       return;
     }
     const data = await systemSettingsService.fetchSystemSettings(hasAdminAccess);
     setSystemSettings(data);
-  };
+  }, [demo, hasAdminAccess, systemSettingsService]);
 
   // Save functions with enhanced error handling and toast notifications
   const saveUserSettings = async (
@@ -334,7 +334,7 @@ export const useSettings = () => {
     };
 
     loadData();
-  }, [user?.id, hasAdminAccess]);
+  }, [user?.id, hasAdminAccess, fetchUserSettings, fetchUserProfile, fetchSystemSettings]);
 
   // Set up real-time subscriptions with error handling
   useEffect(() => {
@@ -351,7 +351,7 @@ export const useSettings = () => {
     );
 
     return cleanup;
-  }, [user?.id, hasAdminAccess]);
+  }, [user?.id, hasAdminAccess, demo, fetchUserSettings, fetchUserProfile, fetchSystemSettings]);
 
   return {
     userSettings,
