@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,105 @@ type Employee = {
 
 type StatusFilter = 'All' | 'Active' | 'Inactive' | 'Onboarding' | 'On Leave' | 'Probation' | 'Terminated';
 
+const seedEmployees: Employee[] = [
+  {
+    id: 1,
+    name: 'John Doe',
+    email: 'john.doe@dreamdayhr.com',
+    phone: '+1 (555) 123-4567',
+    department: 'Engineering',
+    position: 'Senior Frontend Developer',
+    location: 'San Francisco, CA',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2020-03-15'
+  },
+  {
+    id: 2,
+    name: 'Sarah Johnson',
+    email: 'sarah.johnson@dreamdayhr.com',
+    phone: '+1 (555) 987-6543',
+    department: 'Marketing',
+    position: 'Marketing Manager',
+    location: 'New York, NY',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2019-08-20'
+  },
+  {
+    id: 3,
+    name: 'Michael Rodriguez',
+    email: 'michael.rodriguez@dreamdayhr.com',
+    phone: '+1 (555) 456-7890',
+    department: 'Finance',
+    position: 'Financial Analyst',
+    location: 'Chicago, IL',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2021-01-10'
+  },
+  {
+    id: 4,
+    name: 'Emily Chen',
+    email: 'emily.chen@dreamdayhr.com',
+    phone: '+1 (555) 234-5678',
+    department: 'Product',
+    position: 'Product Manager',
+    location: 'Austin, TX',
+    status: 'Onboarding',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2024-11-01'
+  },
+  {
+    id: 5,
+    name: 'David Wilson',
+    email: 'david.wilson@dreamdayhr.com',
+    phone: '+1 (555) 345-6789',
+    department: 'Engineering',
+    position: 'Engineering Director',
+    location: 'Seattle, WA',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2018-05-12'
+  },
+  {
+    id: 6,
+    name: 'Olivia Taylor',
+    email: 'olivia.taylor@dreamdayhr.com',
+    phone: '+1 (555) 567-8901',
+    department: 'Customer Support',
+    position: 'Support Specialist',
+    location: 'Remote',
+    status: 'On Leave',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2022-03-25'
+  },
+  {
+    id: 7,
+    name: 'James Brown',
+    email: 'james.brown@dreamdayhr.com',
+    phone: '+1 (555) 678-9012',
+    department: 'Sales',
+    position: 'Sales Representative',
+    location: 'Miami, FL',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2023-07-08'
+  },
+  {
+    id: 8,
+    name: 'Sophia Garcia',
+    email: 'sophia.garcia@dreamdayhr.com',
+    phone: '+1 (555) 789-0123',
+    department: 'Human Resources',
+    position: 'HR Specialist',
+    location: 'Los Angeles, CA',
+    status: 'Probation',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2024-09-15'
+  },
+];
+
 const EmployeeDirectory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
@@ -66,104 +165,7 @@ const EmployeeDirectory = () => {
   const { toast } = useToast();
 
   // Mock employee data matching the reference design
-  const seedEmployees: Employee[] = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@dreamdayhr.com',
-      phone: '+1 (555) 123-4567',
-      department: 'Engineering',
-      position: 'Senior Frontend Developer',
-      location: 'San Francisco, CA',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2020-03-15'
-    },
-    {
-      id: 2,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@dreamdayhr.com',
-      phone: '+1 (555) 987-6543',
-      department: 'Marketing',
-      position: 'Marketing Manager',
-      location: 'New York, NY',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2019-08-20'
-    },
-    {
-      id: 3,
-      name: 'Michael Rodriguez',
-      email: 'michael.rodriguez@dreamdayhr.com',
-      phone: '+1 (555) 456-7890',
-      department: 'Finance',
-      position: 'Financial Analyst',
-      location: 'Chicago, IL',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2021-01-10'
-    },
-    {
-      id: 4,
-      name: 'Emily Chen',
-      email: 'emily.chen@dreamdayhr.com',
-      phone: '+1 (555) 234-5678',
-      department: 'Product',
-      position: 'Product Manager',
-      location: 'Austin, TX',
-      status: 'Onboarding',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2024-11-01'
-    },
-    {
-      id: 5,
-      name: 'David Wilson',
-      email: 'david.wilson@dreamdayhr.com',
-      phone: '+1 (555) 345-6789',
-      department: 'Engineering',
-      position: 'Engineering Director',
-      location: 'Seattle, WA',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2018-05-12'
-    },
-    {
-      id: 6,
-      name: 'Olivia Taylor',
-      email: 'olivia.taylor@dreamdayhr.com',
-      phone: '+1 (555) 567-8901',
-      department: 'Customer Support',
-      position: 'Support Specialist',
-      location: 'Remote',
-      status: 'On Leave',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2022-03-25'
-    },
-    {
-      id: 7,
-      name: 'James Brown',
-      email: 'james.brown@dreamdayhr.com',
-      phone: '+1 (555) 678-9012',
-      department: 'Sales',
-      position: 'Sales Representative',
-      location: 'Miami, FL',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2023-07-08'
-    },
-    {
-      id: 8,
-      name: 'Sophia Garcia',
-      email: 'sophia.garcia@dreamdayhr.com',
-      phone: '+1 (555) 789-0123',
-      department: 'Human Resources',
-      position: 'HR Specialist',
-      location: 'Los Angeles, CA',
-      status: 'Probation',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2024-09-15'
-    },
-  ];
+
 
   const [employees, setEmployees] = useState<Employee[]>(() => {
     if (!isDemoSession()) return [];
@@ -173,7 +175,7 @@ const EmployeeDirectory = () => {
     return seedEmployees;
   });
 
-  const refreshEmployees = async () => {
+  const refreshEmployees = useCallback(async () => {
     if (isDemoSession()) {
       setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
       return;
@@ -189,11 +191,11 @@ const EmployeeDirectory = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshEmployees();
-  }, []);
+  }, [refreshEmployees]);
 
   const statusFilters: StatusFilter[] = ['All', 'Active', 'Inactive', 'Onboarding', 'On Leave', 'Probation', 'Terminated'];
 
