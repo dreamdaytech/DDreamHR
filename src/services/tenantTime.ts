@@ -11,6 +11,23 @@ export type TenantProject = {
   dueDate?: string;
 };
 
+export type TenantProjectInput = {
+  name: string;
+  notes?: string;
+  department?: string;
+  dueDate?: string;
+  assignedTo?: string[];
+};
+
+export type TenantTaskInput = {
+  name: string;
+  projectId?: string;
+  notes?: string;
+  assignedTo?: string;
+  estimatedHours?: number;
+  dueDate?: string;
+};
+
 export type TenantTask = {
   id: string;
   name: string;
@@ -62,7 +79,7 @@ export const listProjectsAndTasks = async () => {
   };
 };
 
-export const createTenantProject = async (project: any) => {
+export const createTenantProject = async (project: TenantProjectInput) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
@@ -92,7 +109,7 @@ export const createTenantProject = async (project: any) => {
   } as TenantProject;
 };
 
-export const createTenantTask = async (task: any) => {
+export const createTenantTask = async (task: TenantTaskInput) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
