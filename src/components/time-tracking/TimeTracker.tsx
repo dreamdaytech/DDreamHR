@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isDemoSession, readDemoData, writeDemoData } from "@/lib/demoStore";
-import { createTenantProject, createTenantTask, listProjectsAndTasks, saveTenantTimeLog } from "@/services/tenantTime";
+import { createTenantProject, createTenantTask, listProjectsAndTasks, saveTenantTimeLog, type TenantProjectInput, type TenantTaskInput } from "@/services/tenantTime";
 import { useAuth } from "@/context/AuthContext";
 import { ProjectTaskManager } from "./ProjectTaskManager";
 import { TimerControls } from "./TimerControls";
@@ -341,7 +341,7 @@ const TimeTracker = () => {
           billable: isBillable,
           createdAt: new Date().toISOString(),
         };
-        const existing = readDemoData<any[]>('time-logs', []);
+        const existing = readDemoData<unknown[]>('time-logs', []);
         writeDemoData('time-logs', [log, ...existing]);
       } else {
         await saveTenantTimeLog({
@@ -405,7 +405,7 @@ const TimeTracker = () => {
     }
   };
 
-  const handleAddProject = async (newProject: any) => {
+  const handleAddProject = async (newProject: TenantProjectInput) => {
     try {
       const projectWithDefaults = isDemoSession()
         ? {
@@ -438,7 +438,7 @@ const TimeTracker = () => {
     }
   };
 
-  const handleAddTask = async (newTask: any) => {
+  const handleAddTask = async (newTask: TenantTaskInput) => {
     try {
       const taskWithDefaults = isDemoSession()
         ? {
