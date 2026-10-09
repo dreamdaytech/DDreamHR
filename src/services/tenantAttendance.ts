@@ -122,6 +122,28 @@ export const listAttendanceRecords = async (
   return (data || []).map((row) => mapAttendance(row, resolvedName));
 };
 
+export const listTenantAttendanceRecords = async (
+  startDate: Date,
+  endDate: Date,
+): Promise<AttendanceRecord[]> => {
+  const context = await getTenantContext();
+  if (!context?.businessId) return [];
+
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('*, employees!inner(first_name,last_name)')
+    .eq('business_id', context.businessId)
+    .gte('work_date', format(startDate, 'yyyy-MM-dd'))
+    .lte('work_date', format(endDate, 'yyyy-MM-dd'))
+    .order('work_date', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((row) => mapAttendance(
+    row,
+    `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim() || 'Employee',
+  ));
+};
+
 export const fetchTodayAttendance = async (employeeName?: string) => {
   const today = new Date();
   const rows = await listAttendanceRecords(today, today, undefined, employeeName);
@@ -168,10 +190,17 @@ export const updateAttendanceCheckOut = async (attendanceId: string, input: {
   device?: string | null;
   notes?: string | null;
 }) => {
+  const context = await getTenantContext();
+  if (!context?.businessId || !context.employeeId) {
+    throw new Error('Your account is not linked to an employee record.');
+  }
+
   const { data, error } = await supabase
     .from('attendance_records')
     .update({
       check_out: new Date().toISOString(),
+      // The database guard recalculates total_hours from timestamps and unpaid
+      // breaks; this value is retained only for compatibility with callers.
       total_hours: input.totalHours,
       location_check_out: input.locationName || null,
       ip_address_check_out: input.ipAddress || null,
@@ -179,6 +208,8 @@ export const updateAttendanceCheckOut = async (attendanceId: string, input: {
       check_out_notes: input.notes || null,
     })
     .eq('id', attendanceId)
+    .eq('business_id', context.businessId)
+    .eq('employee_id', context.employeeId)
     .select()
     .single();
 
@@ -256,6 +287,17 @@ export const createRegularizationRequest = async (
 
   const requestedDate = request.date;
   const requestedTime = request.requestedTime;
+
+  if (request.requestType === 'Break') {
+    throw new Error('Break regularization is not supported yet because the request form does not capture a break interval.');
+  }
+  if ((request.requestType === 'Check-In' || request.requestType === 'Check-Out') && !requestedTime) {
+    throw new Error('A requested time is required for Check-In and Check-Out regularization.');
+  }
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDate) || Number.isNaN(Date.parse(`${requestedDate}T00:00:00Z`))) {
+    throw new Error('A valid attendance date is required.');
+  }
+
   const combine = requestedTime ? `${requestedDate}T${requestedTime}:00` : null;
 
   const { data, error } = await supabase
@@ -281,53 +323,31 @@ export const createRegularizationRequest = async (
 export const decideRegularizationRequest = async (
   requestId: string,
   action: 'Approved' | 'Rejected',
-  attendanceSettings: AttendanceSettings,
+  _attendanceSettings: AttendanceSettings,
 ) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
-  const { data: request, error: fetchError } = await supabase
+  // The database function authorizes the reviewer, locks the request, applies
+  // the attendance mutation, and changes request status in one transaction.
+  const { error } = await supabase.rpc('decide_attendance_regularization', {
+    p_request_id: requestId,
+    p_action: action,
+    p_review_comment: null,
+  });
+
+  if (error) throw error;
+
+  const { data: updated, error: fetchError } = await supabase
     .from('regularization_requests')
-    .select('*')
+    .select('*, employees!inner(first_name,last_name)')
     .eq('business_id', context.businessId)
     .eq('id', requestId)
     .single();
 
   if (fetchError) throw fetchError;
-
-  const { data: updated, error } = await supabase
-    .from('regularization_requests')
-    .update({
-      status: action,
-      reviewer_id: context.userId,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', requestId)
-    .eq('status', 'Pending')
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  if (action === 'Approved' && request.attendance_id) {
-    const patch: Database['public']['Tables']['attendance_records']['Update'] = { is_regularized: true };
-    if (request.request_type === 'Check-In' && request.requested_check_in) {
-      patch.check_in = request.requested_check_in;
-    } else if (request.request_type === 'Check-Out' && request.requested_check_out) {
-      patch.check_out = request.requested_check_out;
-    } else if (request.request_type === 'Full Day') {
-      patch.status = 'Present';
-      patch.check_in = new Date(`${request.requested_date}T${attendanceSettings.workingHoursStart}:00`).toISOString();
-      patch.check_out = new Date(`${request.requested_date}T${attendanceSettings.workingHoursEnd}:00`).toISOString();
-    }
-
-    const { error: attendanceError } = await supabase
-      .from('attendance_records')
-      .update(patch)
-      .eq('id', request.attendance_id);
-
-    if (attendanceError) throw attendanceError;
-  }
-
-  return mapRegularization(updated);
+  return mapRegularization(
+    updated,
+    `${updated.employees?.first_name || ''} ${updated.employees?.last_name || ''}`.trim() || 'Employee',
+  );
 };
