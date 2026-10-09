@@ -22,6 +22,8 @@ interface WorkHoursBreakdownReportProps {
   userRole?: string;
 }
 
+type WorkHoursAggregate = { employeeId: string; employeeName: string; regularHours: number; overtimeHours: number; totalHours: number };
+
 export const WorkHoursBreakdownReport: React.FC<WorkHoursBreakdownReportProps> = ({
   startDate,
   endDate,
@@ -30,7 +32,7 @@ export const WorkHoursBreakdownReport: React.FC<WorkHoursBreakdownReportProps> =
   employee,
 }) => {
   const [hoursData, setHoursData] = useState<HoursBreakdown[]>([]);
-  const [aggregatedData, setAggregatedData] = useState<any[]>([]);
+  const [aggregatedData, setAggregatedData] = useState<WorkHoursAggregate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
