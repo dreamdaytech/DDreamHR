@@ -75,7 +75,7 @@ const EmployeeRecord = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const storedEmployees = useMemo(() => readDemoData<DemoEmployee[]>('employees', []), [id]);
+  const storedEmployees = useMemo(() => readDemoData<DemoEmployee[]>('employees', []), []);
   const storedEmployee = storedEmployees.find((item) => String(item.id) === String(id));
   const initialEmployee = {
     ...seedEmployee,
