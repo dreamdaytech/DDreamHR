@@ -145,7 +145,7 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       if (isDemoSession()) {
-        const existing = readDemoData<any[]>('employees', []);
+        const existing = readDemoData<unknown[]>('employees', []);
         const numericId = Date.now();
         const employee = {
           id: numericId,
