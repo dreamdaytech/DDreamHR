@@ -49,6 +49,13 @@ const seedEmployee = {
   accessLinked: false,
 };
 
+type DemoEmployee = {
+  id: string | number;
+  name?: string; email?: string; phone?: string; position?: string; department?: string;
+  location?: string; reportingManager?: string; manager?: string; employmentType?: string;
+  joiningDate?: string; startDate?: string; status?: string; imageUrl?: string;
+};
+
 const timeline = [
   { date: '03 Oct 2026', title: 'Annual leave approved', detail: '5 days · 14–18 Oct 2026' },
   { date: '28 Sep 2026', title: 'Salary adjustment approved', detail: 'Effective 01 Oct 2026' },
@@ -68,7 +75,7 @@ const EmployeeRecord = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const storedEmployees = useMemo(() => readDemoData<any[]>('employees', []), [id]);
+  const storedEmployees = useMemo(() => readDemoData<DemoEmployee[]>('employees', []), [id]);
   const storedEmployee = storedEmployees.find((item) => String(item.id) === String(id));
   const initialEmployee = {
     ...seedEmployee,
@@ -85,7 +92,7 @@ const EmployeeRecord = () => {
     if (isDemoSession() || !id) return;
 
     void getTenantEmployee(id)
-      .then((row: any) => {
+      .then((row) => {
         const manager = Array.isArray(row.manager) ? row.manager[0] : row.manager;
         const managerName = manager
           ? `${manager.first_name || ''} ${manager.last_name || ''}`.trim()
