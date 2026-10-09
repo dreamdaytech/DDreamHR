@@ -121,6 +121,10 @@ begin
          for update;
       end if;
 
+      if v_request.attendance_id is not null and not found then
+        raise exception 'Matching attendance record not found' using errcode = 'P0002';
+      end if;
+
       if found then
         update public.attendance_records
            set check_in = v_check_in,
