@@ -21,7 +21,7 @@ const loadTenantContext = async (): Promise<TenantContext | null> => {
   if (userError) throw userError;
   if (!user) return null;
 
-  const { data, error } = await (supabase as any).rpc('get_my_tenant_context');
+  const { data, error } = await supabase.rpc('get_my_tenant_context');
   if (error) throw error;
   if (!data) return null;
 
