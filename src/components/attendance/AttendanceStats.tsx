@@ -1,9 +1,13 @@
 
+import { useEffect, useState } from 'react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Colors } from '@/lib/chart-colors';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { Users, Clock, Calendar, MapPin } from 'lucide-react';
+import { listAttendanceRecords, listTenantAttendanceRecords } from '@/services/tenantAttendance';
+import type { AttendanceRecord } from '@/types/attendance';
 
 interface AttendanceStatsProps {
   userRole: 'admin' | 'hr' | 'manager' | 'employee';
@@ -13,28 +17,83 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
   // Show different stats based on user role
   const isAdmin = userRole === 'admin' || userRole === 'hr';
   
-  const weeklyData = [
-    { name: 'Mon', hours: 8.5, early: 0, late: 0 },
-    { name: 'Tue', hours: 8.2, early: 0, late: 15 },
-    { name: 'Wed', hours: 9.0, early: 15, late: 0 },
-    { name: 'Thu', hours: 8.7, early: 0, late: 0 },
-    { name: 'Fri', hours: 7.8, early: 0, late: 20 },
-  ];
-  
-  const organizationData = [
-    { name: 'Present', value: 85 },
-    { name: 'Late', value: 10 },
-    { name: 'Absent', value: 3 },
-    { name: 'Remote', value: 7 },
-  ];
-  
-  const attendanceTimeSummary = [
-    { day: 'Mon', time: '08:55 AM', status: 'On Time' },
-    { day: 'Tue', time: '09:15 AM', status: 'Late' },
-    { day: 'Wed', time: '08:45 AM', status: 'Early' },
-    { day: 'Thu', time: '09:00 AM', status: 'On Time' },
-    { day: 'Fri', time: '09:20 AM', status: 'Late' },
-  ];
+  const [period] = useState(() => {
+    const today = new Date();
+    return {
+      weekStart: startOfWeek(today, { weekStartsOn: 1 }),
+      weekEnd: endOfWeek(today, { weekStartsOn: 1 }),
+      monthStart: startOfMonth(today),
+      monthEnd: endOfMonth(today),
+    };
+  });
+  const [weeklyRecords, setWeeklyRecords] = useState<AttendanceRecord[]>([]);
+  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
+  const [organizationRecords, setOrganizationRecords] = useState<AttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadStats = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [week, month, organization] = await Promise.all([
+          listAttendanceRecords(period.weekStart, period.weekEnd),
+          listAttendanceRecords(period.monthStart, period.monthEnd),
+          isAdmin ? listTenantAttendanceRecords(period.monthStart, period.monthEnd) : Promise.resolve([]),
+        ]);
+        if (!cancelled) {
+          setWeeklyRecords(week);
+          setMonthlyRecords(month);
+          setOrganizationRecords(organization);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Unable to load attendance statistics.');
+          setWeeklyRecords([]);
+          setMonthlyRecords([]);
+          setOrganizationRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    void loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, period]);
+
+  const weeklyData = weeklyRecords.map((record) => ({
+    name: format(new Date(`${record.date}T00:00:00`), 'EEE'),
+    hours: record.totalHours === null ? 0 : Number(record.totalHours),
+    late: record.status === 'Late' ? 1 : 0,
+    early: 0,
+    status: record.status,
+  }));
+
+  const completedWeek = weeklyRecords.filter((record) => record.totalHours !== null);
+  const weeklyAverage = completedWeek.length
+    ? completedWeek.reduce((sum, record) => sum + Number(record.totalHours || 0), 0) / completedWeek.length
+    : null;
+  const monthlyHours = monthlyRecords.reduce((sum, record) => sum + Number(record.totalHours || 0), 0);
+  const percentage = (count: number, total: number) => total ? Math.round((count / total) * 100) : 0;
+  const presentCount = organizationRecords.filter((record) => record.status === 'Present').length;
+  const remoteCount = organizationRecords.filter((record) => record.status === 'Remote').length;
+  const organizationData = (['Present', 'Late', 'Absent', 'Remote'] as const).map((name) => ({
+    name,
+    value: percentage(organizationRecords.filter((record) => record.status === name).length, organizationRecords.length),
+  }));
+  const attendanceTimeSummary = weeklyRecords
+    .filter((record) => record.checkIn)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+    .map((record) => ({
+      day: format(new Date(`${record.date}T00:00:00`), 'EEE, MMM d'),
+      time: record.checkIn || '—',
+      status: record.status,
+    }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
