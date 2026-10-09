@@ -136,9 +136,9 @@ export const submitLeaveRequest = async (input: {
     .select('manager:manager_id(user_id)')
     .eq('id', context.employeeId)
     .maybeSingle();
-  const manager = Array.isArray((employee as any)?.manager)
-    ? (employee as any).manager[0]
-    : (employee as any)?.manager;
+  const manager = Array.isArray(employee?.manager)
+    ? employee.manager[0]
+    : employee?.manager;
 
   const { data: workflow, error: workflowError } = await supabase
     .from('workflow_requests')
@@ -164,7 +164,7 @@ export const submitLeaveRequest = async (input: {
 
   if (workflowError) throw workflowError;
 
-  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+  const { error: routeError } = await supabase.rpc('route_workflow_to_inbox', {
     target_workflow_id: workflow.id,
     preferred_assignee_user_id: manager?.user_id || null,
     preferred_assignee_role: manager?.user_id ? null : 'manager',
@@ -207,7 +207,7 @@ export const listLeaveHistory = async (team = false) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row) => ({
     id: row.id,
     employeeId: row.employee_id,
     employeeName: `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim(),
@@ -224,7 +224,7 @@ export const listLeaveHistory = async (team = false) => {
       : null,
     reason: row.reason,
     documents: Array.isArray(row.attachment_paths) ? row.attachment_paths : [],
-    timeline: (row.leave_request_events || []).map((event: any) => ({
+    timeline: (row.leave_request_events || []).map((event) => ({
       date: event.created_at?.slice(0, 10),
       action: event.action,
       comment: event.comment || undefined,
@@ -266,8 +266,8 @@ export const listPendingLeaveRequests = async () => {
   if (requestError) throw requestError;
   if (balanceError) throw balanceError;
 
-  return (requests || []).map((row: any) => {
-    const balance = (balances || []).find((item: any) =>
+  return (requests || []).map((row) => {
+    const balance = (balances || []).find((item) =>
       item.employee_id === row.employee_id && item.leave_type_id === row.leave_type_id
     );
     const currentBalance = balance
