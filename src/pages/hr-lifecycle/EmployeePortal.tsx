@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Circle, FileText, PartyPopper, UserCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +17,7 @@ const EmployeePortal = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       setOnboarding(await loadMyOnboarding());
@@ -30,11 +30,11 @@ const EmployeePortal = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const completeTask = async (taskId: string) => {
     setUpdating(taskId);
