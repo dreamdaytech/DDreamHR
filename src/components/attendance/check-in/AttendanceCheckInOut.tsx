@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import type { BreakRecord } from '@/types/attendance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAttendance } from '@/context/AttendanceContext';
 import { useToast } from '@/hooks/use-toast';
@@ -85,7 +86,7 @@ export const AttendanceCheckInOut = () => {
     }
   };
 
-  const handleStartBreak = async (breakType: any, isPaidBreak: boolean) => {
+  const handleStartBreak = async (breakType: BreakRecord['type'], isPaidBreak: boolean) => {
     setIsChecking(true);
     try {
       return await startBreak(breakType, isPaidBreak);
