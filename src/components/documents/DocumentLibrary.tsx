@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -69,7 +69,7 @@ const DocumentLibrary = () => {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const { toast } = useToast();
 
-  const refreshDocuments = async () => {
+  const refreshDocuments = useCallback(async () => {
     if (isDemoSession()) {
       setDocuments(readDemoData<Document[]>('documents', seedDocuments));
       return;
@@ -84,11 +84,11 @@ const DocumentLibrary = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshDocuments();
-  }, []);
+  }, [refreshDocuments]);
 
   const persist = (next: Document[]) => {
     setDocuments(next);
