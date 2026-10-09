@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ const SubscriptionManagement = () => {
   const [businesses, setBusinesses] = useState<PlatformBusiness[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       setBusinesses(await listPlatformBusinesses());
@@ -24,11 +24,11 @@ const SubscriptionManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const updatePlan = async (item: PlatformBusiness, plan: PlatformBusiness['plan']) => {
     try {
