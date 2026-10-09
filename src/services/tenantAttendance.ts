@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
 import type { AttendanceRecord, AttendanceSettings, AttendanceStatus, BreakRecord, RegularizationRequest } from '@/types/attendance';
-import type { Database, Json } from '@/integrations/supabase/types';
+import type { Database } from '@/integrations/supabase/types';
 
 const toTime = (value: string | null) => value ? format(new Date(value), 'HH:mm') : null;
 
@@ -76,7 +76,11 @@ export const loadAttendanceSettings = async (): Promise<AttendanceSettings | nul
     allowedIpAddresses: data.allowed_ip_addresses || [],
     geoFencingEnabled: data.geo_fencing_enabled,
     geoFencingRadius: data.geo_fencing_radius,
-    geoFencingLocations: Array.isArray(data.geo_fencing_locations) ? data.geo_fencing_locations as Json[] : [],
+    geoFencingLocations: Array.isArray(data.geo_fencing_locations)
+      ? data.geo_fencing_locations.filter((location): location is { lat: number; lng: number; name: string } =>
+          typeof location === 'object' && location !== null && !Array.isArray(location) &&
+          typeof location.lat === 'number' && typeof location.lng === 'number' && typeof location.name === 'string')
+      : [],
     biometricRequired: data.biometric_required,
     facialRecognitionRequired: data.facial_recognition_required,
   };
