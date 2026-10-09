@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
+import type { Database, Json } from '@/integrations/supabase/types';
 
 export type InboxDecisionStatus = 'pending' | 'approved' | 'rejected';
 
@@ -38,7 +39,9 @@ const labelFor = (category: string) => {
   return category.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 };
 
-const sourceStatus = async (workflow: any): Promise<InboxDecisionStatus> => {
+type WorkflowStatusSource = Pick<Database['public']['Tables']['workflow_requests']['Row'], 'status' | 'source_type' | 'source_id'>;
+
+const sourceStatus = async (workflow: WorkflowStatusSource): Promise<InboxDecisionStatus> => {
   if (workflow.status === 'rejected') return 'rejected';
   if (workflow.status === 'approved' || workflow.status === 'completed') return 'approved';
 
@@ -84,7 +87,7 @@ export const listWorkInbox = async (): Promise<TenantInboxItem[]> => {
 
   if (workflowError) throw workflowError;
 
-  const workflowMap = new Map((workflows || []).map((workflow: any) => [workflow.id, workflow]));
+  const workflowMap = new Map((workflows || []).map((workflow) => [workflow.id, workflow] as const));
   const items: TenantInboxItem[] = [];
 
   for (const item of workItems) {
@@ -110,9 +113,9 @@ export const listWorkInbox = async (): Promise<TenantInboxItem[]> => {
       continue;
     }
 
-    const employeeRelation = Array.isArray((workflow as any).employees)
-      ? (workflow as any).employees[0]
-      : (workflow as any).employees;
+    const employeeRelation = Array.isArray(workflow.employees)
+      ? workflow.employees[0]
+      : workflow.employees;
     const employeeName = employeeRelation
       ? `${employeeRelation.first_name || ''} ${employeeRelation.last_name || ''}`.trim()
       : 'Employee';
@@ -123,7 +126,13 @@ export const listWorkInbox = async (): Promise<TenantInboxItem[]> => {
       .join('')
       .slice(0, 2)
       .toUpperCase() || 'E';
-    const payload = (workflow as any).payload || {};
+    const payload: Record<string, Json> = workflow.payload && typeof workflow.payload === 'object' && !Array.isArray(workflow.payload)
+      ? workflow.payload as Record<string, Json>
+      : {};
+    const payloadText = (key: string): string | undefined => {
+      const value = payload[key];
+      return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+    };
     const status = await sourceStatus(workflow);
     const category = item.category || workflow.request_type;
 
@@ -133,12 +142,12 @@ export const listWorkInbox = async (): Promise<TenantInboxItem[]> => {
       type: labelFor(category),
       employee: employeeName,
       employeeAvatar: initials,
-      date: payload.effective_date || payload.start_date || payload.period_start || workflow.created_at.slice(0, 10),
-      duration: payload.days
-        ? `${payload.days} day${Number(payload.days) === 1 ? '' : 's'}`
-        : payload.total_hours
-          ? `${payload.total_hours}h`
-          : payload.change_type || item.priority,
+      date: payloadText('effective_date') || payloadText('start_date') || payloadText('period_start') || workflow.created_at.slice(0, 10),
+      duration: payloadText('days')
+        ? `${payloadText('days')} day${Number(payloadText('days')) === 1 ? '' : 's'}`
+        : payloadText('total_hours')
+          ? `${payloadText('total_hours')}h`
+          : payloadText('change_type') || item.priority,
       status,
       description: item.description || item.title,
       submittedAt: workflow.submitted_at || workflow.created_at,
