@@ -67,7 +67,7 @@ export const BreakDialog = ({
             <Label htmlFor="break-type" className="text-right">
               Type
             </Label>
-            <Select value={breakType} onValueChange={(value: any) => setBreakType(value)}>
+            <Select value={breakType} onValueChange={(value: BreakRecord['type']) => setBreakType(value)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select break type" />
               </SelectTrigger>
