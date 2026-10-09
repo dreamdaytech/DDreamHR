@@ -63,7 +63,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
     };
 
     loadData();
-  }, [userId]);
+  }, [userId, user?.id, fetchUserProfile, fetchUserSettings]);
 
   // Update form data when profile data changes
   useEffect(() => {
