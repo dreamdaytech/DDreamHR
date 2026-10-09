@@ -1,10 +1,8 @@
 
 // Export functions for report data
-type CsvValue = string | number | boolean | null | undefined;
-type CsvRow = Record<string, CsvValue>;
 type NavigatorWithMsSaveBlob = Navigator & { msSaveBlob?: (blob: Blob, filename?: string) => boolean };
 
-export const exportToCsv = (data: CsvRow[], filename: string) => {
+export const exportToCsv = (data: object[], filename: string) => {
   if (!data || !data.length) {
     console.error('No data to export');
     return;
@@ -16,13 +14,15 @@ export const exportToCsv = (data: CsvRow[], filename: string) => {
   // Convert data to CSV rows
   const csvRows = [
     headers.join(','), // Header row
-    ...data.map(row => 
-      headers.map(header => {
-        const cell = row[header] === null || row[header] === undefined ? '' : String(row[header]);
+    ...data.map(row => {
+      const record = row as Record<string, unknown>;
+      return headers.map(header => {
+        const value = record[header];
+        const cell = value === null || value === undefined ? '' : String(value);
         // Handle strings with commas by quoting them
         return typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell;
-      }).join(',')
-    )
+      }).join(',');
+    })
   ];
   
   // Combine all rows with newlines
