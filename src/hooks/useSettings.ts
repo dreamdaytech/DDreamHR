@@ -131,7 +131,7 @@ export const useSettings = () => {
 
   const saveSystemSetting = async (
     settingKey: string,
-    settingValue: Record<string, any>,
+    settingValue: Record<string, Json>,
     category: string = 'general',
     description?: string
   ) => {
@@ -236,9 +236,9 @@ export const useSettings = () => {
   };
 
   // Get system setting with caching
-  const getSystemSetting = (settingKey: string): Record<string, any> | null => {
+  const getSystemSetting = (settingKey: string): Record<string, Json> | null => {
     const setting = systemSettings.find(s => s.setting_key === settingKey);
-    return setting?.setting_value as Record<string, any> || null;
+    return setting?.setting_value as Record<string, Json> || null;
   };
 
   // Load system settings function
@@ -259,7 +259,7 @@ export const useSettings = () => {
   };
 
   // Save multiple system settings function
-  const saveSystemSettings = async (settings: Record<string, any>) => {
+  const saveSystemSettings = async (settings: Record<string, Json>) => {
     setIsSaving(true);
     try {
       const targetUserId = user?.id;
