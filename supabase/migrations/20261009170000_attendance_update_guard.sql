@@ -17,7 +17,11 @@ begin
   -- Unauthenticated callers cannot normally reach this table due to grants/RLS.
   -- Trusted service-role calls have no auth.uid() and retain server workflow access.
   if actor is null then
-    return new;
+    if coalesce(auth.role(), '') = 'service_role' then
+      return new;
+    end if;
+    raise exception 'Authenticated identity is required for attendance updates'
+      using errcode = '42501';
   end if;
 
   -- A record must never be moved between tenants, employees, or work dates,
