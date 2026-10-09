@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
+import type { Database } from '@/integrations/supabase/types';
 
 export type TenantDocument = {
   id: string;
@@ -34,7 +35,7 @@ const accessToUi = (level: string): TenantDocument['accessLevel'] => {
   return 'Private';
 };
 
-const mapDocument = (row: any): TenantDocument => {
+const mapDocument = (row: Database['public']['Tables']['documents']['Row']): TenantDocument => {
   const uploader = Array.isArray(row.uploader) ? row.uploader[0] : row.uploader;
   return {
     id: row.id,
