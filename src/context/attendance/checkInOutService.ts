@@ -1,7 +1,8 @@
 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { AttendanceRecord, BreakRecord } from '@/types/attendance';
+import { AttendanceRecord, BreakRecord, AttendanceSettings } from '@/types/attendance';
+import type { User } from '@/context/AuthContext';
 import { useLocationCheck } from '@/hooks/useLocationCheck';
 import { determineAttendanceStatus, calculateTotalHours } from '@/utils/attendanceUtils';
 import { getClientIpAddress } from '@/utils/locationUtils';
@@ -9,8 +10,8 @@ import { isDemoSession, writeDemoData } from '@/lib/demoStore';
 import { createAttendanceCheckIn, updateAttendanceCheckOut } from '@/services/tenantAttendance';
 
 export function useCheckInOutService(
-  user: any,
-  attendanceSettings: any,
+  user: User | null,
+  attendanceSettings: AttendanceSettings,
   todayAttendance: AttendanceRecord | null,
   setTodayAttendance: React.Dispatch<React.SetStateAction<AttendanceRecord | null>>,
   setAttendanceRecords: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>,
