@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
+import type { Database, Json } from '@/integrations/supabase/types';
 
 export type TenantEmployee = {
   id: string;
@@ -17,7 +18,25 @@ export type TenantEmployee = {
   reportingManager?: string;
 };
 
-const toUiStatus = (row: any): TenantEmployee['status'] => {
+type EmployeeRow = Database['public']['Tables']['employees']['Row'];
+type EmployeeListRow = Pick<EmployeeRow, 'id' | 'employee_id_number' | 'first_name' | 'last_name' | 'email' | 'phone' | 'department' | 'position' | 'location' | 'status' | 'lifecycle_state' | 'employment_condition' | 'employment_type' | 'profile_image_url' | 'hire_date' | 'start_date' | 'created_at'> & {
+  manager: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+};
+type EmployeeFormValues = {
+  employeeId?: string; firstName?: string; lastName?: string; email?: string;
+  workPhone?: string; personalMobile?: string; designation?: string; department?: string;
+  location?: string; reportingManager?: string; employmentType?: string; status?: string;
+  dateOfJoining?: string; nickname?: string; role?: string; sourceOfHire?: string;
+  currentExperience?: string; totalExperience?: string; dateOfBirth?: string; age?: string | number;
+  gender?: string; maritalStatus?: string; aboutMe?: string; expertise?: string;
+  extension?: string; seatingLocation?: string; tags?: string[];
+};
+type EmployeeChangeDraft = {
+  employeeId?: string; employee?: string; employeeEmail?: string; type?: string;
+  effectiveDate: string; oldValue?: string; newValue?: string; reason?: string;
+};
+
+const toUiStatus = (row: Pick<EmployeeRow, 'status' | 'lifecycle_state' | 'employment_condition'>): TenantEmployee['status'] => {
   if (row.status === 'terminated' || row.lifecycle_state === 'former_employee') return 'Terminated';
   if (row.status === 'inactive') return 'Inactive';
   if (row.lifecycle_state === 'onboarding' || row.lifecycle_state === 'preboarding') return 'Onboarding';
@@ -35,7 +54,7 @@ const toDbEmploymentType = (value?: string) => {
   return 'full_time';
 };
 
-const mapEmployee = (row: any): TenantEmployee => ({
+const mapEmployee = (row: EmployeeListRow): TenantEmployee => ({
   id: row.id,
   name: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
   email: row.email || '',
@@ -49,7 +68,7 @@ const mapEmployee = (row: any): TenantEmployee => ({
   employeeId: row.employee_id_number || '',
   employmentType: row.employment_type || 'full_time',
   reportingManager: row.manager
-    ? `${row.manager.first_name || ''} ${row.manager.last_name || ''}`.trim()
+    ? `${(Array.isArray(row.manager) ? row.manager[0] : row.manager)?.first_name || ''} ${(Array.isArray(row.manager) ? row.manager[0] : row.manager)?.last_name || ''}`.trim()
     : '',
 });
 
@@ -104,7 +123,7 @@ export const getTenantEmployee = async (employeeId: string) => {
   return data;
 };
 
-export const createTenantEmployee = async (values: any, extras: Record<string, unknown> = {}) => {
+export const createTenantEmployee = async (values: EmployeeFormValues, extras: Record<string, Json> = {}) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
@@ -181,7 +200,7 @@ export const updateTenantEmployee = async (employeeId: string, updates: {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
-  const payload: Record<string, any> = {};
+  const payload: Record<string, string | null> = {};
   if (updates.name) {
     const [firstName, ...rest] = updates.name.trim().split(/\s+/);
     payload.first_name = firstName;
@@ -243,7 +262,7 @@ export const listEmployeeChanges = async () => {
   return data || [];
 };
 
-export const createEmployeeChange = async (draft: any) => {
+export const createEmployeeChange = async (draft: EmployeeChangeDraft) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
@@ -330,7 +349,7 @@ export const advanceEmployeeChange = async (id: string, status: 'approved' | 'sc
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
-  const payload: Record<string, any> = { status };
+  const payload: Record<string, string | null> = { status };
   if (status === 'approved') {
     payload.approved_by = context.userId;
     payload.approved_at = new Date().toISOString();
