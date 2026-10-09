@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -19,8 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { format, subDays, addDays, startOfWeek, endOfWeek } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { format, subDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { listAttendanceRecords, listTenantAttendanceRecords } from '@/services/tenantAttendance';
+import type { AttendanceRecord } from '@/types/attendance';
 
 interface AttendanceSummaryProps {
   view?: 'daily' | 'weekly' | 'monthly';
@@ -36,62 +37,101 @@ export const AttendanceSummary = ({
   
   const isAdminView = userRole === 'admin' || userRole === 'hr';
   
-  // Sample data for demonstration
-  const dailyAttendance = {
-    date: format(currentDate, 'yyyy-MM-dd'),
-    checkIn: '09:00 AM',
-    checkOut: '05:30 PM',
-    breakTime: '01:00 PM - 02:00 PM',
-    totalHours: 7.5,
-    status: 'Present',
-    location: 'Main Office'
-  };
-  
-  // Generate weekly data
-  const generateWeeklyData = () => {
-    const startDate = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start from Monday
-    const endDate = endOfWeek(currentDate, { weekStartsOn: 1 }); // End on Sunday
-    
-    const weeklyData = [];
-    let currentDay = startDate;
-    
-    while (currentDay <= endDate) {
-      // Skip weekends
-      if (![0, 6].includes(currentDay.getDay())) { // 0 = Sunday, 6 = Saturday
-        const isRandom = Math.random();
-        
-        weeklyData.push({
-          date: format(currentDay, 'yyyy-MM-dd'),
-          day: format(currentDay, 'EEEE'),
-          checkIn: isRandom > 0.1 ? `0${8 + Math.floor(isRandom * 2)}:${Math.floor(isRandom * 60).toString().padStart(2, '0')} AM` : '-',
-          checkOut: isRandom > 0.1 ? `0${5 + Math.floor(isRandom)}:${Math.floor(isRandom * 60).toString().padStart(2, '0')} PM` : '-',
-          totalHours: isRandom > 0.1 ? (8 + isRandom).toFixed(1) : '-',
-          status: isRandom > 0.9 ? 'Present' : isRandom > 0.8 ? 'Late' : isRandom > 0.1 ? 'Remote' : 'Absent',
-          location: isRandom > 0.8 ? 'Main Office' : isRandom > 0.1 ? 'Remote' : '-'
-        });
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [tenantRecords, setTenantRecords] = useState<AttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const startDate = selectedView === 'daily'
+      ? currentDate
+      : selectedView === 'weekly'
+        ? startOfWeek(currentDate, { weekStartsOn: 1 })
+        : startOfMonth(currentDate);
+    const endDate = selectedView === 'daily'
+      ? currentDate
+      : selectedView === 'weekly'
+        ? endOfWeek(currentDate, { weekStartsOn: 1 })
+        : endOfMonth(currentDate);
+
+    const loadRecords = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [ownRecords, organizationRecords] = await Promise.all([
+          listAttendanceRecords(startDate, endDate),
+          isAdminView && selectedView === 'monthly'
+            ? listTenantAttendanceRecords(startDate, endDate)
+            : Promise.resolve([]),
+        ]);
+        if (!cancelled) {
+          setAttendanceRecords(ownRecords);
+          setTenantRecords(organizationRecords);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Unable to load attendance records.');
+          setAttendanceRecords([]);
+          setTenantRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      
-      currentDay = addDays(currentDay, 1);
-    }
-    
-    return weeklyData;
-  };
-  
-  const weeklyData = generateWeeklyData();
-  
-  // Generate employee data for admin view
-  const generateEmployeeData = () => {
-    return [
-      { id: 1, name: 'John Smith', department: 'Engineering', present: 5, late: 0, absent: 0 },
-      { id: 2, name: 'Maria Garcia', department: 'Marketing', present: 4, late: 1, absent: 0 },
-      { id: 3, name: 'Robert Johnson', department: 'Finance', present: 3, late: 1, absent: 1 },
-      { id: 4, name: 'Sarah Williams', department: 'HR', present: 5, late: 0, absent: 0 },
-      { id: 5, name: 'Michael Brown', department: 'Engineering', present: 4, late: 0, absent: 1 },
-    ];
-  };
-  
-  const employeeData = generateEmployeeData();
-  
+    };
+
+    void loadRecords();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDate, selectedView, isAdminView]);
+
+  const dailyRecord = attendanceRecords.find(
+    (record) => record.date === format(currentDate, 'yyyy-MM-dd'),
+  );
+  const dailyAttendance = dailyRecord ? {
+    date: dailyRecord.date,
+    checkIn: dailyRecord.checkIn || '—',
+    checkOut: dailyRecord.checkOut || '—',
+    breakTime: '—',
+    totalHours: dailyRecord.totalHours === null ? '—' : dailyRecord.totalHours.toFixed(1),
+    status: dailyRecord.status,
+    location: dailyRecord.location || '—',
+  } : null;
+
+  const weeklyData = attendanceRecords.map((record) => ({
+    date: record.date,
+    checkIn: record.checkIn || '—',
+    checkOut: record.checkOut || '—',
+    totalHours: record.totalHours === null ? '—' : record.totalHours.toFixed(1),
+    status: record.status,
+    location: record.location || '—',
+  }));
+
+  const employeeSummary = new Map<string, {
+    id: string;
+    name: string;
+    department: string;
+    present: number;
+    late: number;
+    absent: number;
+  }>();
+  tenantRecords.forEach((record) => {
+    const employee = employeeSummary.get(record.employeeId) || {
+      id: record.employeeId,
+      name: record.employeeName,
+      department: '—',
+      present: 0,
+      late: 0,
+      absent: 0,
+    };
+    if (record.status === 'Present' || record.status === 'Remote') employee.present += 1;
+    if (record.status === 'Late') employee.late += 1;
+    if (record.status === 'Absent') employee.absent += 1;
+    employeeSummary.set(record.employeeId, employee);
+  });
+  const employeeData = Array.from(employeeSummary.values());
+
   // Navigation functions
   const navigatePrevious = () => {
     if (selectedView === 'daily') {
