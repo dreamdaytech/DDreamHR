@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { DEMO_STORAGE_KEY, findDemoAccount, getStoredDemoUser } from '@/lib/demoAccounts';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
