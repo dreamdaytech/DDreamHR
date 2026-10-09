@@ -42,7 +42,7 @@ export const generateMockAttendanceData = (
   employeeName: string
 ) => {
   const mockData = [];
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   
   while (currentDate <= endDate) {
     const dateStr = format(currentDate, 'yyyy-MM-dd');
