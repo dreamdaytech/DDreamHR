@@ -42,7 +42,7 @@ export const GeneralLeaveSettings: React.FC = () => {
     });
   };
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = <K extends keyof typeof generalSettings>(key: K, value: (typeof generalSettings)[K]) => {
     setGeneralSettings(prev => ({
       ...prev,
       [key]: value
