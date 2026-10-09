@@ -315,7 +315,7 @@ export const createEmployeeChange = async (draft: any) => {
 
   if (workflowError) throw workflowError;
 
-  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+  const { error: routeError } = await supabase.rpc('route_workflow_to_inbox', {
     target_workflow_id: workflow.id,
     preferred_assignee_user_id: null,
     preferred_assignee_role: 'hr',
