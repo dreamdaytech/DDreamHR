@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, Plus, RefreshCw } from 'lucide-react';
+import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadTextFile, toCsv } from '@/lib/demoStore';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,8 +24,6 @@ type Business = {
   employees: number;
 };
 
-const blank = { name: '', admin_email: '', industry: '', country: 'Sierra Leone', subscription_plan: 'trial' as Business['subscription_plan'], monthly_revenue: '0' };
-
 const BusinessManagement = () => {
   const { toast } = useToast();
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -36,7 +34,7 @@ const BusinessManagement = () => {
   const [selected, setSelected] = useState<Business | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState(blank);
+  const [draft, setDraft] = useState({ name: '', admin_email: '', industry: '', country: '', subscription_plan: 'trial' as Business['subscription_plan'], monthly_revenue: '0' });
 
   const loadBusinesses = async () => {
     setLoading(true);
@@ -69,6 +67,10 @@ const BusinessManagement = () => {
   }), [businesses, planFilter, searchTerm, statusFilter]);
 
   const saveBusiness = async () => {
+    if (!editingId) {
+      toast({ title: 'Tenant creation is unavailable here', description: 'Use the verified business registration flow so owner membership and tenant defaults are provisioned atomically.', variant: 'destructive' });
+      return;
+    }
     if (!draft.name.trim() || !draft.admin_email.trim() || !draft.industry.trim()) {
       toast({ title: 'Complete the business record', description: 'Name, admin email and industry are required.', variant: 'destructive' });
       return;
@@ -83,16 +85,14 @@ const BusinessManagement = () => {
       monthly_revenue: Math.max(0, Number(draft.monthly_revenue) || 0),
     };
 
-    const result = editingId
-      ? await supabase.from('businesses').update(payload).eq('id', editingId)
-      : await supabase.from('businesses').insert({ ...payload, slug: (draft.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace') + '-' + Date.now(), entity_type: 'company', status: draft.subscription_plan === 'trial' ? 'trial' : 'active' });
+    const result = await supabase.from('businesses').update(payload).eq('id', editingId);
 
     if (result.error) {
       toast({ title: 'Save failed', description: result.error.message, variant: 'destructive' });
       return;
     }
 
-    toast({ title: editingId ? 'Business updated' : 'Business created', description: payload.name });
+    toast({ title: 'Business updated', description: payload.name });
     setEditorOpen(false);
     await loadBusinesses();
   };
@@ -121,7 +121,7 @@ const BusinessManagement = () => {
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-3xl font-bold">Business Management</h1><p className="text-muted-foreground">Live production tenant administration</p></div>
-        <div className="flex gap-2"><Button variant="outline" onClick={exportBusinesses}><Download className="mr-2 h-4 w-4" />Export</Button><Button variant="outline" onClick={() => void loadBusinesses()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button><Button onClick={() => { setEditingId(null); setDraft(blank); setEditorOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Business</Button></div>
+        <div className="flex gap-2"><Button variant="outline" onClick={exportBusinesses}><Download className="mr-2 h-4 w-4" />Export</Button><Button variant="outline" onClick={() => void loadBusinesses()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button></div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -147,7 +147,7 @@ const BusinessManagement = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={editorOpen} onOpenChange={setEditorOpen}><DialogContent><DialogHeader><DialogTitle>{editingId ? 'Edit business' : 'Add business'}</DialogTitle></DialogHeader><div className="grid gap-4">
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}><DialogContent><DialogHeader><DialogTitle>Edit business</DialogTitle></DialogHeader><div className="grid gap-4">
         <div className="grid gap-2"><Label>Name</Label><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
         <div className="grid gap-2"><Label>Admin email</Label><Input type="email" value={draft.admin_email} onChange={(e) => setDraft({ ...draft, admin_email: e.target.value })} /></div>
         <div className="grid gap-2"><Label>Industry</Label><Input value={draft.industry} onChange={(e) => setDraft({ ...draft, industry: e.target.value })} /></div>
