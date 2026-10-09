@@ -339,13 +339,13 @@ export const submitTenantTimesheet = async (timesheetId: string) => {
     if (workflowError) throw workflowError;
     workflowId = workflow.id;
   } else {
-    const { error: resubmitError } = await (supabase as any).rpc('resubmit_workflow_request', {
+    const { error: resubmitError } = await supabase.rpc('resubmit_workflow_request', {
       target_workflow_id: workflowId,
     });
     if (resubmitError) throw resubmitError;
   }
 
-  const { error: routeError } = await (supabase as any).rpc('route_workflow_to_inbox', {
+  const { error: routeError } = await supabase.rpc('route_workflow_to_inbox', {
     target_workflow_id: workflowId,
     preferred_assignee_user_id: data.submitted_to || null,
     preferred_assignee_role: data.submitted_to ? null : 'manager',
