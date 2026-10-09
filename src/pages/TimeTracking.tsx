@@ -25,8 +25,8 @@ const TimeTracking = () => {
   const [activeTab, setActiveTab] = useState("tracker");
   
   const handleExport = (format: string) => {
-    const timesheets = readDemoData<any[]>('timesheets', []);
-    const logs = readDemoData<any[]>('time-logs', []);
+    const timesheets = readDemoData<Record<string, string | number | boolean | null>[]>('timesheets', []);
+    const logs = readDemoData<Record<string, string | number | boolean | null>[]>('time-logs', []);
     const rows = timesheets.length
       ? timesheets
       : logs.map((log) => ({
