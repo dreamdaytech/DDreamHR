@@ -28,6 +28,10 @@ import {
 } from 'lucide-react';
 import { LeaveType } from '../data/leaveTypes';
 
+type ManagedLeaveType = LeaveType & {
+  color: string; visibility: string; carryForward?: boolean; maxCarryForward?: number; noticePeriodDays?: number;
+};
+
 const colorOptions = [
   { value: 'bg-blue-500', label: 'Blue', color: '#3B82F6' },
   { value: 'bg-green-500', label: 'Green', color: '#10B981' },
@@ -51,8 +55,8 @@ export const LeaveTypeSettings: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingType, setEditingType] = useState<LeaveType | null>(null);
-  const [leaveTypes, setLeaveTypes] = useState([
+  const [editingType, setEditingType] = useState<ManagedLeaveType | null>(null);
+  const [leaveTypes, setLeaveTypes] = useState<ManagedLeaveType[]>([
     { value: 'annual', label: 'Annual Leave', balance: 25, color: 'bg-blue-500', isPaid: true, visibility: 'all', description: 'Standard annual vacation leave', active: true },
     { value: 'sick', label: 'Sick Leave', balance: 10, color: 'bg-red-500', isPaid: true, visibility: 'all', description: 'Medical leave for illness', active: true },
     { value: 'personal', label: 'Personal Leave', balance: 5, color: 'bg-purple-500', isPaid: false, visibility: 'all', description: 'Personal time off', active: true },
@@ -90,7 +94,7 @@ export const LeaveTypeSettings: React.FC = () => {
     setEditingType(null);
   };
 
-  const openDialog = (leaveType?: any) => {
+  const openDialog = (leaveType?: ManagedLeaveType) => {
     if (leaveType) {
       setFormData({
         value: leaveType.value,
@@ -148,7 +152,7 @@ export const LeaveTypeSettings: React.FC = () => {
     });
   };
 
-  const toggleActive = (leaveType: any) => {
+  const toggleActive = (leaveType: ManagedLeaveType) => {
     const updatedTypes = leaveTypes.map(type => 
       type.value === leaveType.value 
         ? { ...type, active: !type.active }
@@ -162,7 +166,7 @@ export const LeaveTypeSettings: React.FC = () => {
     });
   };
 
-  const deleteLeaveType = (leaveType: any) => {
+  const deleteLeaveType = (leaveType: ManagedLeaveType) => {
     const updatedTypes = leaveTypes.filter(type => type.value !== leaveType.value);
     setLeaveTypes(updatedTypes);
     
