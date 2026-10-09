@@ -66,10 +66,10 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
         value: leaveType.value,
         label: leaveType.label,
         balance: leaveType.balance,
-        isPaid: (leaveType as any).isPaid ?? true,
-        visibility: (leaveType as any).visibility ?? 'individual',
-        description: (leaveType as any).description ?? '',
-        active: (leaveType as any).active ?? true
+        isPaid: leaveType.isPaid ?? true,
+        visibility: leaveType.visibility ?? 'individual',
+        description: leaveType.description ?? '',
+        active: leaveType.active ?? true
       });
       setEditingType(leaveType);
     } else {
@@ -90,7 +90,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
       return;
     }
 
-    const newLeaveType: LeaveType & any = {
+    const newLeaveType: LeaveType = {
       ...formData,
       value: formData.value.toLowerCase().replace(/\s+/g, '-')
     };
