@@ -12,15 +12,23 @@ const SystemHealth = () => {
 
   const checkHealth = async () => {
     setStatus('checking');
-    const [businesses, employees, users] = await Promise.all([
-      supabase.from('businesses').select('id', { count: 'exact', head: true }),
-      supabase.from('employees').select('id', { count: 'exact', head: true }),
-      supabase.from('user_profiles').select('user_id', { count: 'exact', head: true }),
-    ]);
-    const failed = [businesses.error, employees.error, users.error].some(Boolean);
-    if (!failed) setStats({ businesses: businesses.count ?? 0, employees: employees.count ?? 0, users: users.count ?? 0 });
-    setStatus(failed ? 'error' : 'operational');
-    setCheckedAt(new Date());
+    try {
+      const [businesses, employees, users] = await Promise.all([
+        supabase.from('businesses').select('id', { count: 'exact', head: true }),
+        supabase.from('employees').select('id', { count: 'exact', head: true }),
+        supabase.from('user_profiles').select('user_id', { count: 'exact', head: true }),
+      ]);
+      const failed = [businesses.error, employees.error, users.error].some(Boolean);
+      if (!failed) {
+        setStats({ businesses: businesses.count ?? 0, employees: employees.count ?? 0, users: users.count ?? 0 });
+      }
+      setStatus(failed ? 'error' : 'operational');
+    } catch (error) {
+      console.error('System health query failed:', error);
+      setStatus('error');
+    } finally {
+      setCheckedAt(new Date());
+    }
   };
 
   useEffect(() => { void checkHealth(); }, []);
