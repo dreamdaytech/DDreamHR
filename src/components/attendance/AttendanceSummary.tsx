@@ -216,41 +216,48 @@ export const AttendanceSummary = ({
           </Button>
         </div>
         
+        {isLoading && <div className="py-4 text-center text-muted-foreground">Loading attendance records…</div>}
+        {loadError && <div role="alert" className="py-3 text-sm text-destructive">{loadError}</div>}
+
         {selectedView === 'daily' && (
-          <div className="bg-slate-50 p-4 rounded-lg border space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-slate-500">Date</div>
-                <div className="font-medium">{format(new Date(dailyAttendance.date), 'MMMM d, yyyy')}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Status</div>
-                <div>{getStatusBadge(dailyAttendance.status)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Check In</div>
-                <div className="font-medium">{dailyAttendance.checkIn}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Check Out</div>
-                <div className="font-medium">{dailyAttendance.checkOut}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Break Time</div>
-                <div className="font-medium">{dailyAttendance.breakTime}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Total Hours</div>
-                <div className="font-medium">{dailyAttendance.totalHours} hrs</div>
-              </div>
-              <div className="col-span-2">
-                <div className="text-sm text-slate-500">Location</div>
-                <div className="font-medium">{dailyAttendance.location}</div>
+          dailyAttendance ? (
+            <div className="bg-slate-50 p-4 rounded-lg border space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-slate-500">Date</div>
+                  <div className="font-medium">{format(new Date(`${dailyAttendance.date}T00:00:00`), 'MMMM d, yyyy')}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Status</div>
+                  <div>{getStatusBadge(dailyAttendance.status)}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Check In</div>
+                  <div className="font-medium">{dailyAttendance.checkIn}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Check Out</div>
+                  <div className="font-medium">{dailyAttendance.checkOut}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Break Time</div>
+                  <div className="font-medium">{dailyAttendance.breakTime}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Total Hours</div>
+                  <div className="font-medium">{dailyAttendance.totalHours} {dailyAttendance.totalHours === '—' ? '' : 'hrs'}</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-sm text-slate-500">Location</div>
+                  <div className="font-medium">{dailyAttendance.location}</div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">No attendance record exists for this date.</div>
+          )
         )}
-        
+
         {selectedView === 'weekly' && (
           <div className="rounded-md border">
             <Table>
@@ -265,10 +272,10 @@ export const AttendanceSummary = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {weeklyData.map((record, index) => (
-                  <TableRow key={index}>
+                {weeklyData.length ? weeklyData.map((record) => (
+                  <TableRow key={record.date}>
                     <TableCell>
-                      <div className="font-medium">{format(new Date(record.date), 'EEE, MMM d')}</div>
+                      <div className="font-medium">{format(new Date(`${record.date}T00:00:00`), 'EEE, MMM d')}</div>
                     </TableCell>
                     <TableCell>{record.checkIn}</TableCell>
                     <TableCell>{record.checkOut}</TableCell>
@@ -276,7 +283,13 @@ export const AttendanceSummary = ({
                     <TableCell>{getStatusBadge(record.status)}</TableCell>
                     <TableCell>{record.location}</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                      No attendance records exist for this period.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -298,7 +311,7 @@ export const AttendanceSummary = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {employeeData.map((employee) => (
+                    {employeeData.length ? employeeData.map((employee) => (
                       <TableRow key={employee.id}>
                         <TableCell>
                           <div className="font-medium">{employee.name}</div>
@@ -314,7 +327,13 @@ export const AttendanceSummary = ({
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          No attendance records exist for this period.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
