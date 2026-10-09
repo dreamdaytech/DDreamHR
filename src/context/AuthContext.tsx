@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const fetchUserWithRole = async (supabaseUser: SupabaseUser): Promise<User | null> => {
+  const fetchUserWithRole = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     const [{ data: profile, error: profileError }, { data: tenantContext, error: contextError }] = await Promise.all([
       supabase
         .from('user_profiles')
@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lifecycleState: context?.lifecycle_state ?? null,
       employmentCondition: context?.employment_condition ?? null,
     };
-  };
+  }, [toast]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchUserWithRole]);
 
   const login = async (email: string, password: string): Promise<User | null> => {
     // Dev-only demo accounts (no Supabase / email verification needed)
