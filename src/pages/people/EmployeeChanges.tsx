@@ -102,7 +102,7 @@ const EmployeeChanges = () => {
 
     try {
       const rows = await listEmployeeChanges();
-      setChanges(rows.map((row: any) => ({
+      setChanges(rows.map((row) => ({
         id: row.id,
         employee: `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim(),
         employeeId: row.employee_id,
