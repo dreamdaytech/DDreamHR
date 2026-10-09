@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,7 +84,7 @@ export const LeaveApprovalManager = () => {
     return stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' }));
   });
 
-  const refreshPendingRequests = async () => {
+  const refreshPendingRequests = useCallback(async () => {
     if (isDemoSession()) {
       const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []).filter((request) => request.status === 'pending');
       setPendingRequests(stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' })));
@@ -100,11 +100,11 @@ export const LeaveApprovalManager = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshPendingRequests();
-  }, []);
+  }, [refreshPendingRequests]);
 
   const handleApproval = async (requestId: string | number, action: 'approve' | 'reject') => {
     const request = pendingRequests.find((item) => String(item.id) === String(requestId));
