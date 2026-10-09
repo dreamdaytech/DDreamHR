@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadTextFile, toCsv } from '@/lib/demoStore';
 import { supabase } from '@/integrations/supabase/client';
 
-type PlatformUser = { user_id: string; name: string; role: string; business: string; business_id: string; status: string; email: string };
+type PlatformUser = { user_id: string; name: string; role: string; membershipRole: string; isPrimaryAdmin: boolean; business: string; business_id: string; status: string; email: string };
 
 const UserManagement = () => {
   const { toast } = useToast();
@@ -21,7 +21,7 @@ const UserManagement = () => {
   const loadUsers = async () => {
     setLoading(true);
     const { data, error } = await supabase.from('business_users')
-      .select('user_id,business_id,role,status,user_profiles(first_name,last_name,is_super_admin),businesses(name),employees(email)')
+      .select('user_id,business_id,role,status,is_primary_admin,user_profiles(first_name,last_name,is_super_admin),businesses(name),employees(email)')
       .order('created_at', { ascending: false });
     if (error) {
       toast({ title: 'Could not load users', description: error.message, variant: 'destructive' });
@@ -36,6 +36,8 @@ const UserManagement = () => {
         user_id: row.user_id,
         name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || row.user_id.slice(0, 8),
         role: profile?.is_super_admin ? 'super_admin' : row.role,
+        membershipRole: row.role,
+        isPrimaryAdmin: Boolean(row.is_primary_admin),
         business: business?.name ?? '—',
         business_id: row.business_id,
         status: row.status,
@@ -53,7 +55,15 @@ const UserManagement = () => {
       && (roleFilter === 'all' || user.role === roleFilter);
   }), [roleFilter, searchTerm, users]);
 
+  const isLastActiveAdmin = (user: PlatformUser) => user.membershipRole === 'admin'
+    && user.status === 'active'
+    && users.filter((candidate) => candidate.business_id === user.business_id && candidate.membershipRole === 'admin' && candidate.status === 'active').length <= 1;
+
   const setStatus = async (user: PlatformUser, status: 'active' | 'inactive') => {
+    if (status === 'inactive' && isLastActiveAdmin(user)) {
+      toast({ title: 'Cannot deactivate the last active administrator', description: 'Promote another active administrator first.', variant: 'destructive' });
+      return;
+    }
     const { error } = await supabase.from('business_users').update({ status }).eq('business_id', user.business_id).eq('user_id', user.user_id);
     if (error) toast({ title: 'User update failed', description: error.message, variant: 'destructive' });
     else await loadUsers();
@@ -70,7 +80,7 @@ const UserManagement = () => {
       <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Super Admins</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{users.filter((u) => u.role === 'super_admin').length}</div></CardContent></Card>
     </div>
     <div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-10" placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div><Select value={roleFilter} onValueChange={setRoleFilter}><SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All roles</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="employee">Employee</SelectItem></SelectContent></Select></div>
-    <Card><CardHeader><CardTitle>{loading ? 'Loading…' : `Users (${filtered.length})`}</CardTitle></CardHeader><CardContent className="space-y-3">{filtered.map((user) => <div key={user.user_id + user.business_id} className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"><div><p className="font-semibold">{user.name}</p><p className="text-sm text-muted-foreground">{user.email}</p><div className="mt-2 flex gap-2"><Badge variant="secondary">{user.role}</Badge><Badge variant="outline">{user.status}</Badge><Badge variant="outline">{user.business}</Badge></div></div><div>{user.status === 'active' ? <Button variant="outline" size="sm" onClick={() => void setStatus(user, 'inactive')} disabled={user.role === 'super_admin'}><Ban className="mr-2 h-4 w-4" />Deactivate</Button> : <Button variant="outline" size="sm" onClick={() => void setStatus(user, 'active')}><CheckCircle className="mr-2 h-4 w-4" />Activate</Button>}</div></div>)}</CardContent></Card>
+    <Card><CardHeader><CardTitle>{loading ? 'Loading…' : `Users (${filtered.length})`}</CardTitle></CardHeader><CardContent className="space-y-3">{filtered.map((user) => <div key={user.user_id + user.business_id} className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"><div><p className="font-semibold">{user.name}</p><p className="text-sm text-muted-foreground">{user.email}</p><div className="mt-2 flex gap-2"><Badge variant="secondary">{user.role}</Badge><Badge variant="outline">{user.status}</Badge><Badge variant="outline">{user.business}</Badge></div></div><div>{user.status === 'active' ? <Button variant="outline" size="sm" onClick={() => void setStatus(user, 'inactive')} disabled={user.role === 'super_admin' || isLastActiveAdmin(user)}><Ban className="mr-2 h-4 w-4" />Deactivate</Button> : <Button variant="outline" size="sm" onClick={() => void setStatus(user, 'active')}><CheckCircle className="mr-2 h-4 w-4" />Activate</Button>}</div></div>)}</CardContent></Card>
   </div>;
 };
 
