@@ -7,7 +7,7 @@ import type { Json } from '@/integrations/supabase/types';
 export class UserSettingsService {
   private handleError: (error: unknown, operation: string) => unknown;
 
-  constructor(handleError: (error: any, operation: string) => any) {
+  constructor(handleError: (error: unknown, operation: string) => unknown) {
     this.handleError = handleError;
   }
 
