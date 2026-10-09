@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
 import { decideWorkItem, listWorkInbox, TenantInboxItem } from '@/services/tenantWorkflow';
@@ -69,7 +69,7 @@ const Approvals = () => {
   const [loading, setLoading] = useState(!isDemoSession());
   const navigate = useNavigate();
 
-  const refreshInbox = async () => {
+  const refreshInbox = useCallback(async () => {
     if (isDemoSession()) {
       setApprovals(readDemoData<ApprovalItem[]>('inbox-items', initialApprovals));
       return;
@@ -100,11 +100,11 @@ const Approvals = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshInbox();
-  }, []);
+  }, [refreshInbox]);
 
   const filteredApprovals = useMemo(
     () => approvals.filter((approval) => approval.status === activeFilter),
