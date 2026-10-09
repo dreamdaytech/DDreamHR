@@ -1,12 +1,13 @@
 import { useToast } from '@/hooks/use-toast';
-import { AttendanceRecord, RegularizationRequest } from '@/types/attendance';
+import { AttendanceRecord, RegularizationRequest, AttendanceSettings } from '@/types/attendance';
+import type { User } from '@/context/AuthContext';
 import { calculateTotalHours } from '@/utils/attendanceUtils';
 import { isDemoSession, writeDemoData } from '@/lib/demoStore';
 import { createRegularizationRequest, decideRegularizationRequest } from '@/services/tenantAttendance';
 
 export function useRegularizationService(
-  user: any,
-  attendanceSettings: any,
+  user: User | null,
+  attendanceSettings: AttendanceSettings,
   attendanceRecords: AttendanceRecord[],
   regularizationRequests: RegularizationRequest[],
   setRegularizationRequests: React.Dispatch<React.SetStateAction<RegularizationRequest[]>>,
