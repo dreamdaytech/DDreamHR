@@ -1,7 +1,8 @@
--- Restrict SECURITY DEFINER RPC execution to the authenticated role where intended.
--- This is a source-control reconstruction from the currently deployed grants and
--- the combined remediation migration; it is not a recovered copy of the original
--- migration body. Validate against the original deployment artifact before release.
+-- Source-control migration for production version 20261008180439.
+-- The operation set is recovered from the combined SECURITY DEFINER grant
+-- migration present in commit d926215d5dd815d061f58c8bbfcb813d555fdc54,
+-- then split by the version names recorded in production migration history.
+-- Live PostgreSQL grants were checked against these intended privileges on 2026-10-09.
 revoke execute on function public.accept_employee_invitation(text) from public;
 revoke execute on function public.complete_my_onboarding_item(text) from public;
 revoke execute on function public.register_business_tenant(text,text,text,text,text,text,text,text,time,time,text,integer,integer,text) from public;
