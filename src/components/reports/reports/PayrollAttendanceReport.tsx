@@ -59,7 +59,7 @@ export const PayrollAttendanceReport: React.FC<PayrollAttendanceReportProps> = (
     };
 
     fetchData();
-  }, [startDate, endDate, department, location, employee]);
+  }, [startDate, endDate, department, location, employee, userRole]);
 
   // Check if user has proper access
   if (userRole !== 'admin' && userRole !== 'hr') {
