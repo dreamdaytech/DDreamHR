@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AttendanceRecord, AttendanceStatus } from '@/types/attendance';
@@ -41,7 +42,7 @@ export function useAttendanceFetchService(
     }
   };
 
-  const fetchAttendanceByDate = async (date: Date): Promise<AttendanceRecord[]> => {
+  const fetchAttendanceByDate = useCallback(async (date: Date): Promise<AttendanceRecord[]> => {
     if (!user) return [];
 
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -90,7 +91,7 @@ export function useAttendanceFetchService(
       });
       return [];
     }
-  };
+  }, [user, setAttendanceRecords, toast]);
 
   const getAttendanceStatusForDate = (date: Date): AttendanceStatus | null => {
     if (!user) return null;
