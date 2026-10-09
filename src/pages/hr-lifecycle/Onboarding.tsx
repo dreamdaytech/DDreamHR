@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, CheckCircle2, Clock, UserPlus, Users } from 'lucide-react';
 import { listTenantOnboardingAssignments } from '@/services/tenantOnboarding';
@@ -16,7 +16,7 @@ const Onboarding = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       setAssignments(await listTenantOnboardingAssignments());
@@ -29,11 +29,11 @@ const Onboarding = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const active = useMemo(() => assignments.filter((item) => !item.completedAt), [assignments]);
   const completed = useMemo(() => assignments.filter((item) => Boolean(item.completedAt)), [assignments]);
