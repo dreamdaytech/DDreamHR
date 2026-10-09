@@ -317,7 +317,7 @@ export const useSettings = () => {
         return;
       }
 
-      console.log('Loading settings data for user:', user);
+      console.log('Loading settings data for user ID:', user.id);
       setIsLoading(true);
       
       try {
