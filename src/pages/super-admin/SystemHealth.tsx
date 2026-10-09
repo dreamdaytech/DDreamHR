@@ -1,96 +1,39 @@
-
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-import { Server, Zap, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Server, Database, Users, Building2, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
-const responseTimeData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${i}:00`,
-  responseTime: Math.floor(Math.random() * (120 - 80 + 1) + 80),
-}));
+const SystemHealth = () => {
+  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
+  const [stats, setStats] = useState({ businesses: 0, employees: 0, users: 0 });
+  const [status, setStatus] = useState<'checking' | 'operational' | 'error'>('checking');
 
-const services = [
-  { name: 'Main API', status: 'Operational' },
-  { name: 'Database', status: 'Operational' },
-  { name: 'Background Workers', status: 'Degraded Performance' },
-  { name: 'Authentication Service', status: 'Operational' },
-  { name: 'Email Service', status: 'Outage' },
-];
+  const checkHealth = async () => {
+    setStatus('checking');
+    const [businesses, employees, users] = await Promise.all([
+      supabase.from('businesses').select('id', { count: 'exact', head: true }),
+      supabase.from('employees').select('id', { count: 'exact', head: true }),
+      supabase.from('user_profiles').select('user_id', { count: 'exact', head: true }),
+    ]);
+    const failed = [businesses.error, employees.error, users.error].some(Boolean);
+    if (!failed) setStats({ businesses: businesses.count ?? 0, employees: employees.count ?? 0, users: users.count ?? 0 });
+    setStatus(failed ? 'error' : 'operational');
+    setCheckedAt(new Date());
+  };
 
-const SystemHealth: React.FC = () => {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">System Health</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Uptime (24h)</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">99.95%</div>
-            <p className="text-xs text-muted-foreground">All systems operational</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">102ms</div>
-            <p className="text-xs text-muted-foreground">Last 24 hours</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">API Error Rate</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0.12%</div>
-            <p className="text-xs text-muted-foreground">Within normal parameters</p>
-          </CardContent>
-        </Card>
-      </div>
+  useEffect(() => { void checkHealth(); }, []);
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>API Response Time (Last 24h)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={responseTimeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis label={{ value: 'ms', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="responseTime" stroke="#3B82F6" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {services.map(service => (
-              <div key={service.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {service.status === 'Operational' ? <CheckCircle className="h-4 w-4 text-green-500"/> : <AlertTriangle className="h-4 w-4 text-red-500"/>}
-                  <span>{service.name}</span>
-                </div>
-                <Badge variant={service.status === 'Operational' ? 'default' : 'destructive'} className={service.status === 'Operational' ? 'bg-green-500' : ''}>{service.status}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+  return <div className="space-y-6">
+    <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold">System Health</h1><p className="text-muted-foreground">Live checks against the production Supabase backend.</p></div><Button variant="outline" onClick={() => void checkHealth()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button></div>
+    <div className="grid gap-4 md:grid-cols-3">
+      <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Database</CardTitle><Database className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{status === 'checking' ? 'Checking…' : status === 'operational' ? 'Operational' : 'Unavailable'}</div><p className="text-xs text-muted-foreground">Live query check</p></CardContent></Card>
+      <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Businesses</CardTitle><Building2 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.businesses}</div><p className="text-xs text-muted-foreground">Visible to this administrator</p></CardContent></Card>
+      <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Employees</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.employees}</div><p className="text-xs text-muted-foreground">Visible to this administrator</p></CardContent></Card>
     </div>
-  );
+    <Card><CardHeader><CardTitle>Health status</CardTitle></CardHeader><CardContent className="flex items-center gap-3">{status === 'operational' ? <CheckCircle className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}<Badge variant={status === 'operational' ? 'default' : 'destructive'}>{status === 'checking' ? 'Checking' : status === 'operational' ? 'Operational' : 'Check failed'}</Badge>{checkedAt && <span className="text-sm text-muted-foreground">Last checked {checkedAt.toLocaleTimeString()}</span>}</CardContent></Card>
+  </div>;
 };
 
 export default SystemHealth;

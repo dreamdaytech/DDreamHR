@@ -38,24 +38,9 @@ export const MusterRollReport: React.FC<MusterRollReportProps> = ({
   const [dateRange, setDateRange] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Check if user has proper access
-  if (userRole !== 'admin' && userRole !== 'hr') {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Muster Roll Report</CardTitle>
-          <CardDescription>Access denied</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            You don't have permission to access muster roll data.
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   useEffect(() => {
+    if (userRole !== 'admin' && userRole !== 'hr') return;
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -129,6 +114,25 @@ export const MusterRollReport: React.FC<MusterRollReportProps> = ({
 
     fetchData();
   }, [startDate, endDate, department, location, employee]);
+
+  // Check if user has proper access
+  if (userRole !== 'admin' && userRole !== 'hr') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Muster Roll Report</CardTitle>
+          <CardDescription>Access denied</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            You don't have permission to access muster roll data.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+
 
   // Function to get status badge
   const getStatusBadge = (status: string) => {
