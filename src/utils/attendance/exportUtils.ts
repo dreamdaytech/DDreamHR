@@ -1,6 +1,10 @@
 
 // Export functions for report data
-export const exportToCsv = (data: any[], filename: string) => {
+type CsvValue = string | number | boolean | null | undefined;
+type CsvRow = Record<string, CsvValue>;
+type NavigatorWithMsSaveBlob = Navigator & { msSaveBlob?: (blob: Blob, filename?: string) => boolean };
+
+export const exportToCsv = (data: CsvRow[], filename: string) => {
   if (!data || !data.length) {
     console.error('No data to export');
     return;
@@ -14,7 +18,7 @@ export const exportToCsv = (data: any[], filename: string) => {
     headers.join(','), // Header row
     ...data.map(row => 
       headers.map(header => {
-        const cell = row[header] === null || row[header] === undefined ? '' : row[header];
+        const cell = row[header] === null || row[header] === undefined ? '' : String(row[header]);
         // Handle strings with commas by quoting them
         return typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell;
       }).join(',')
@@ -31,7 +35,7 @@ export const exportToCsv = (data: any[], filename: string) => {
   // Fix for TypeScript error - check for msSaveBlob in a type-safe way
   if (navigator.userAgent.includes('MSIE') || navigator.userAgent.includes('Trident/')) {
     // For IE browsers - use any type assertion for msSaveBlob
-    (navigator as any).msSaveBlob(blob, filename);
+    (navigator as NavigatorWithMsSaveBlob).msSaveBlob?.(blob, filename);
   } else {
     // For other browsers
     const url = URL.createObjectURL(blob);
