@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Building2, Users, DollarSign, Eye, Edit, Pause, Play, Search, Download, Link2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const BusinessManagement = () => {
   const [editing, setEditing] = useState<PlatformBusiness | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       setBusinesses(await listPlatformBusinesses());
@@ -34,11 +34,11 @@ const BusinessManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const filteredBusinesses = useMemo(() => businesses.filter((item) => {
     const search = searchTerm.toLowerCase();
