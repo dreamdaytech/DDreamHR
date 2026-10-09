@@ -2,10 +2,15 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
 import type { AttendanceRecord, AttendanceSettings, AttendanceStatus, BreakRecord, RegularizationRequest } from '@/types/attendance';
+import type { Database, Json } from '@/integrations/supabase/types';
 
 const toTime = (value: string | null) => value ? format(new Date(value), 'HH:mm') : null;
 
-const mapAttendance = (row: any, employeeName = 'Employee'): AttendanceRecord => ({
+type AttendanceRow = Database['public']['Tables']['attendance_records']['Row'];
+type AttendanceBreakRow = Database['public']['Tables']['attendance_breaks']['Row'];
+type RegularizationRow = Database['public']['Tables']['regularization_requests']['Row'];
+
+const mapAttendance = (row: AttendanceRow, employeeName = 'Employee'): AttendanceRecord => ({
   id: row.id,
   employeeId: row.employee_id,
   employeeName,
@@ -21,7 +26,7 @@ const mapAttendance = (row: any, employeeName = 'Employee'): AttendanceRecord =>
   isRegularized: Boolean(row.is_regularized),
 });
 
-const mapBreak = (row: any): BreakRecord => ({
+const mapBreak = (row: AttendanceBreakRow): BreakRecord => ({
   id: row.id,
   attendanceId: row.attendance_id,
   startTime: toTime(row.start_time) || '',
@@ -31,7 +36,7 @@ const mapBreak = (row: any): BreakRecord => ({
   notes: row.notes || null,
 });
 
-const mapRegularization = (row: any, employeeName = 'Employee'): RegularizationRequest => ({
+const mapRegularization = (row: RegularizationRow, employeeName = 'Employee'): RegularizationRequest => ({
   id: row.id,
   employeeId: row.employee_id,
   employeeName,
@@ -71,7 +76,7 @@ export const loadAttendanceSettings = async (): Promise<AttendanceSettings | nul
     allowedIpAddresses: data.allowed_ip_addresses || [],
     geoFencingEnabled: data.geo_fencing_enabled,
     geoFencingRadius: data.geo_fencing_radius,
-    geoFencingLocations: Array.isArray(data.geo_fencing_locations) ? data.geo_fencing_locations as any[] : [],
+    geoFencingLocations: Array.isArray(data.geo_fencing_locations) ? data.geo_fencing_locations as Json[] : [],
     biometricRequired: data.biometric_required,
     facialRecognitionRequired: data.facial_recognition_required,
   };
@@ -231,7 +236,7 @@ export const listRegularizationRequests = async (): Promise<RegularizationReques
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data || []).map((row: any) => mapRegularization(
+  return (data || []).map((row) => mapRegularization(
     row,
     `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim() || 'Employee',
   ));
@@ -301,7 +306,7 @@ export const decideRegularizationRequest = async (
   if (error) throw error;
 
   if (action === 'Approved' && request.attendance_id) {
-    const patch: Record<string, any> = { is_regularized: true };
+    const patch: Database['public']['Tables']['attendance_records']['Update'] = { is_regularized: true };
     if (request.request_type === 'Check-In' && request.requested_check_in) {
       patch.check_in = request.requested_check_in;
     } else if (request.request_type === 'Check-Out' && request.requested_check_out) {
