@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { getTenantEmployee, updateTenantEmployee } from '@/services/tenantPeople';
+import { sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
+import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
   Briefcase,
@@ -42,6 +46,14 @@ const seedEmployee = {
   condition: 'Working',
   salary: 'SLE 95,000',
   imageUrl: '/placeholder.svg',
+  accessLinked: false,
+};
+
+type DemoEmployee = {
+  id: string | number;
+  name?: string; email?: string; phone?: string; position?: string; department?: string;
+  location?: string; reportingManager?: string; manager?: string; employmentType?: string;
+  joiningDate?: string; startDate?: string; status?: string; imageUrl?: string;
 };
 
 const timeline = [
@@ -62,7 +74,8 @@ const InfoRow = ({ label, value }: { label: string; value: string }) => (
 const EmployeeRecord = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const storedEmployees = useMemo(() => readDemoData<any[]>('employees', []), [id]);
+  const { toast } = useToast();
+  const storedEmployees = useMemo(() => readDemoData<DemoEmployee[]>('employees', []), []);
   const storedEmployee = storedEmployees.find((item) => String(item.id) === String(id));
   const initialEmployee = {
     ...seedEmployee,
@@ -74,7 +87,67 @@ const EmployeeRecord = () => {
     condition: storedEmployee?.status === 'On Leave' ? 'On Leave' : storedEmployee?.status === 'Probation' ? 'Probation' : seedEmployee.condition,
   };
   const [employee, setEmployee] = useState(initialEmployee);
+
+  useEffect(() => {
+    if (isDemoSession() || !id) return;
+
+    void getTenantEmployee(id)
+      .then((row) => {
+        const manager = Array.isArray(row.manager) ? row.manager[0] : row.manager;
+        const managerName = manager
+          ? `${manager.first_name || ''} ${manager.last_name || ''}`.trim()
+          : '';
+        const name = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+        const lifecycle = row.lifecycle_state === 'former_employee'
+          ? 'Former Employee'
+          : row.lifecycle_state === 'onboarding'
+            ? 'Onboarding'
+            : row.lifecycle_state === 'preboarding'
+              ? 'Preboarding'
+              : 'Active';
+        const condition = row.employment_condition === 'on_leave'
+          ? 'On Leave'
+          : row.employment_condition === 'probation'
+            ? 'Probation'
+            : row.employment_condition === 'notice_period'
+              ? 'Notice Period'
+              : row.employment_condition === 'suspended'
+                ? 'Suspended'
+                : 'Working';
+
+        const mapped = {
+          ...seedEmployee,
+          id: row.id,
+          name: name || row.email,
+          email: row.email || '',
+          phone: row.phone || '',
+          position: row.position || 'Employee',
+          department: row.department || 'Unassigned',
+          location: row.location || '',
+          manager: managerName,
+          startDate: row.start_date || row.hire_date || '',
+          employmentType: (row.employment_type || 'full_time').replace(/_/g, ' '),
+          lifecycle,
+          condition,
+          imageUrl: row.profile_image_url || '/placeholder.svg',
+          accessLinked: Boolean(row.user_id),
+        };
+        setEmployee(mapped);
+        setEditDraft({
+          name: mapped.name,
+          position: mapped.position,
+          department: mapped.department,
+          manager: mapped.manager,
+          location: mapped.location,
+        });
+      })
+      .catch((error) => console.error('Failed to load employee record', error));
+  }, [id]);
+
   const [editOpen, setEditOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteRole, setInviteRole] = useState<EmployeeAccessRole>('employee');
+  const [inviting, setInviting] = useState(false);
   const [editDraft, setEditDraft] = useState({
     name: initialEmployee.name,
     position: initialEmployee.position,
@@ -83,18 +156,57 @@ const EmployeeRecord = () => {
     location: initialEmployee.location,
   });
 
-  const saveEmployee = () => {
-    const nextEmployee = { ...employee, ...editDraft };
-    setEmployee(nextEmployee);
-    if (storedEmployee) {
-      const next = storedEmployees.map((item) =>
-        String(item.id) === String(id)
-          ? { ...item, ...editDraft, reportingManager: editDraft.manager }
-          : item,
-      );
-      writeDemoData('employees', next);
+  const sendWorkspaceInvitation = async () => {
+    if (!id) return;
+    setInviting(true);
+    try {
+      const result = await sendEmployeeInvitation(id, inviteRole);
+      if (result.delivery_status === 'link_only') {
+        await navigator.clipboard?.writeText(result.invite_url);
+        toast({
+          title: 'Invitation link copied',
+          description: 'Email delivery was unavailable, so the secure invitation link was copied.',
+        });
+      } else {
+        toast({
+          title: 'Invitation sent',
+          description: `${employee.email} can now join this DDreamHR workspace.`,
+        });
+      }
+      setInviteOpen(false);
+      navigate('/employees/invitations');
+    } catch (error) {
+      toast({
+        title: 'Could not send invitation',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setInviting(false);
     }
-    setEditOpen(false);
+  };
+
+  const saveEmployee = async () => {
+    const nextEmployee = { ...employee, ...editDraft };
+    try {
+      if (isDemoSession()) {
+        setEmployee(nextEmployee);
+        if (storedEmployee) {
+          const next = storedEmployees.map((item) =>
+            String(item.id) === String(id)
+              ? { ...item, ...editDraft, reportingManager: editDraft.manager }
+              : item,
+          );
+          writeDemoData('employees', next);
+        }
+      } else if (id) {
+        await updateTenantEmployee(id, editDraft);
+        setEmployee(nextEmployee);
+      }
+      setEditOpen(false);
+    } catch (error) {
+      console.error('Failed to update employee', error);
+    }
   };
 
   return (
@@ -117,6 +229,12 @@ const EmployeeRecord = () => {
               <DropdownMenuItem onClick={() => navigate('/employees?view=changes')}>Create employee change</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/employees?view=offboarding')}>Start offboarding</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/documents')}>Open documents</DropdownMenuItem>
+              {!isDemoSession() && !employee.accessLinked && (
+                <DropdownMenuItem onClick={() => setInviteOpen(true)}>Send DDreamHR invitation</DropdownMenuItem>
+              )}
+              {!isDemoSession() && employee.accessLinked && (
+                <DropdownMenuItem onClick={() => navigate('/employees/invitations')}>View workspace access</DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => setEditOpen(true)}>Edit employee</Button>
@@ -305,6 +423,37 @@ const EmployeeRecord = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Invite {employee.name} to DDreamHR</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Work email</Label>
+              <Input value={employee.email} readOnly />
+            </div>
+            <div>
+              <Label>Workspace role</Label>
+              <Select value={inviteRole} onValueChange={(value) => setInviteRole(value as EmployeeAccessRole)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-muted-foreground">The business controls this role. The employee cannot change it during registration.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button onClick={sendWorkspaceInvitation} disabled={inviting}>
+                {inviting ? 'Sending…' : 'Send invitation'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit employee</DialogTitle></DialogHeader>

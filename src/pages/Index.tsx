@@ -30,7 +30,7 @@ const Index = () => {
             <Button variant="outline" className="mr-2" onClick={() => navigate('/login')}>
               Login
             </Button>
-            <Button onClick={() => navigate('/login')}>Get Started</Button>
+            <Button onClick={() => navigate('/register')}>Get Started</Button>
           </nav>
           <div className="md:hidden">
             <Button variant="outline" onClick={() => navigate('/login')}>
@@ -52,7 +52,7 @@ const Index = () => {
                 Streamline your HR operations with our all-in-one solution. Manage employees, track attendance, handle documents, and more.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button size="lg" onClick={() => navigate('/login')}>
+                <Button size="lg" onClick={() => navigate('/register')}>
                   Get Started <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button size="lg" variant="outline" onClick={() => navigate('/demo')}>
@@ -102,7 +102,7 @@ const Index = () => {
             size="lg" 
             variant="outline" 
             className="text-white border-white hover:bg-white hover:text-primary-700"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/register')}
           >
             Get Started Today <ArrowRight className="ml-2 h-5 w-5" />
           </Button>

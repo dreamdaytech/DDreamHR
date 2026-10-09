@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,7 @@ const Payslips = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const fetchPayslips = async () => {
+  const fetchPayslips = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('payslips')
@@ -85,20 +85,36 @@ const Payslips = () => {
 
       if (error) throw error;
 
-      const formattedPayslips = (data || []).map(payslip => ({
-        id: payslip.id,
-        employee: payslip.employees as any,
-        payroll_record: {
-          ...payslip.payroll_records,
-          payroll_period: payslip.payroll_records.payroll_periods
-        } as any,
-        generated_at: payslip.generated_at,
-        emailed_at: payslip.emailed_at,
-        downloaded_at: payslip.downloaded_at
-      }));
+      const formattedPayslips = (data || []).flatMap((payslip) => {
+        const employee = Array.isArray(payslip.employees) ? payslip.employees[0] : payslip.employees;
+        const payrollRecord = Array.isArray(payslip.payroll_records)
+          ? payslip.payroll_records[0]
+          : payslip.payroll_records;
+        if (!employee || !payrollRecord) return [];
+        const payrollPeriod = Array.isArray(payrollRecord.payroll_periods)
+          ? payrollRecord.payroll_periods[0]
+          : payrollRecord.payroll_periods;
+        if (!payrollPeriod) return [];
+
+        return [{
+          id: payslip.id,
+          employee,
+          payroll_record: {
+            basic_salary: payrollRecord.basic_salary,
+            gross_salary: payrollRecord.gross_salary,
+            net_salary: payrollRecord.net_salary,
+            total_allowances: payrollRecord.total_allowances,
+            total_deductions: payrollRecord.total_deductions,
+            payroll_period: payrollPeriod,
+          },
+          generated_at: payslip.generated_at,
+          emailed_at: payslip.emailed_at,
+          downloaded_at: payslip.downloaded_at,
+        }];
+      });
 
       setPayslips(formattedPayslips);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching payslips:', error);
       toast({
         title: "Error",
@@ -108,11 +124,11 @@ const Payslips = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchPayslips();
-  }, []);
+  }, [fetchPayslips]);
 
   const handleDownload = async (payslipId: string) => {
     try {
@@ -128,7 +144,7 @@ const Payslips = () => {
       });
 
       fetchPayslips();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading payslip:', error);
       toast({
         title: "Error",
@@ -152,7 +168,7 @@ const Payslips = () => {
       });
 
       fetchPayslips();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error emailing payslip:', error);
       toast({
         title: "Error",

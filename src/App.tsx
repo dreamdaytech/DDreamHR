@@ -9,6 +9,8 @@ import { AttendanceProvider } from "./context/AttendanceContext";
 // Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import BusinessRegistration from "./pages/BusinessRegistration";
+import InvitationAcceptance from "./pages/InvitationAcceptance";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
 import Demo from "./pages/Demo";
@@ -18,6 +20,7 @@ import HrDashboard from "./pages/HrDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import Employees from "./pages/Employees";
 import EmployeeDetail from "./pages/EmployeeDetail";
+import EmployeeInvitations from "./pages/people/EmployeeInvitations";
 import Attendance from "./pages/Attendance";
 import Reports from "./pages/Reports";
 import Documents from "./pages/Documents";
@@ -95,6 +98,9 @@ const App = () => (
               {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<BusinessRegistration />} />
+              <Route path="/setup" element={<BusinessRegistration />} />
+              <Route path="/invite/:token" element={<InvitationAcceptance />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/about" element={<About />} />
               <Route path="/demo" element={<Demo />} />
@@ -238,6 +244,12 @@ const App = () => (
                   </RequireAuth>
                 } />
                 
+                <Route path="/employees/invitations" element={
+                  <RequireAuth allowedRoles={['admin', 'hr']}>
+                    <EmployeeInvitations />
+                  </RequireAuth>
+                } />
+
                 <Route path="/employees/:id" element={
                   <RequireAuth allowedRoles={['admin', 'hr']}>
                     <EmployeeDetail />

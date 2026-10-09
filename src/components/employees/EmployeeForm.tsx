@@ -25,7 +25,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from 'lucide-react';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { createTenantEmployee } from '@/services/tenantPeople';
+import { sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
 
 const formSchema = z.object({
   employeeId: z.string().min(1, { message: 'Employee ID is required' }),
@@ -119,6 +121,7 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([]);
   const [educations, setEducations] = useState<Education[]>([]);
   const [dependents, setDependents] = useState<Dependent[]>([]);
+  const [sendInvitation, setSendInvitation] = useState(true);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -126,6 +129,7 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
       sameAsPresent: false,
       employmentType: 'Permanent',
       status: 'Active',
+      role: 'Employee',
     },
   });
 
@@ -138,36 +142,89 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
     'Additional Details'
   ];
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    const existing = readDemoData<any[]>('employees', []);
-    const numericId = Date.now();
-    const employee = {
-      id: numericId,
-      name: `${values.firstName} ${values.lastName}`.trim(),
-      email: values.email,
-      phone: values.workPhone || values.personalMobile || '',
-      department: values.department,
-      position: values.designation,
-      location: values.location,
-      status: values.status,
-      imageUrl: '/placeholder.svg',
-      joiningDate: values.dateOfJoining || new Date().toISOString().split('T')[0],
-      employeeId: values.employeeId,
-      employmentType: values.employmentType,
-      reportingManager: values.reportingManager || '',
-      workExperiences,
-      educations,
-      dependents,
-    };
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      if (isDemoSession()) {
+        const existing = readDemoData<unknown[]>('employees', []);
+        const numericId = Date.now();
+        const employee = {
+          id: numericId,
+          name: `${values.firstName} ${values.lastName}`.trim(),
+          email: values.email,
+          phone: values.workPhone || values.personalMobile || '',
+          department: values.department,
+          position: values.designation,
+          location: values.location,
+          status: values.status,
+          imageUrl: '/placeholder.svg',
+          joiningDate: values.dateOfJoining || new Date().toISOString().split('T')[0],
+          employeeId: values.employeeId,
+          employmentType: values.employmentType,
+          reportingManager: values.reportingManager || '',
+          workExperiences,
+          educations,
+          dependents,
+        };
+        writeDemoData('employees', [employee, ...existing]);
+      } else {
+        const createdEmployee = await createTenantEmployee(values, { workExperiences, educations, dependents });
 
-    writeDemoData('employees', [employee, ...existing]);
-    toast({
-      title: "Employee added successfully",
-      description: `${values.firstName} ${values.lastName} has been added to the demo workspace.`,
-    });
+        if (sendInvitation) {
+          const roleMap: Record<string, EmployeeAccessRole> = {
+            Admin: 'admin',
+            HR: 'hr',
+            Manager: 'manager',
+            Employee: 'employee',
+          };
+          const accessRole = roleMap[values.role] || 'employee';
 
-    if (onSaved) onSaved();
-    else navigate('/employees?view=directory');
+          try {
+            const invitation = await sendEmployeeInvitation(createdEmployee.id, accessRole);
+            if (invitation.delivery_status === 'link_only') {
+              await navigator.clipboard?.writeText(invitation.invite_url);
+              toast({
+                title: 'Employee added — invitation link copied',
+                description: 'Email delivery was unavailable, so the secure invitation link was copied to your clipboard.',
+              });
+            } else {
+              toast({
+                title: 'Employee added and invited',
+                description: `${values.firstName} ${values.lastName} can join DDreamHR from the invitation email.`,
+              });
+            }
+          } catch (inviteError) {
+            toast({
+              title: 'Employee added, invitation needs attention',
+              description: inviteError instanceof Error
+                ? inviteError.message
+                : 'The employee record was created, but the invitation could not be sent.',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          toast({
+            title: 'Employee record created',
+            description: `${values.firstName} ${values.lastName} was added without login access.`,
+          });
+        }
+      }
+
+      if (isDemoSession()) {
+        toast({
+          title: "Employee added successfully",
+          description: `${values.firstName} ${values.lastName} has been added to DDreamHR.`,
+        });
+      }
+
+      if (onSaved) onSaved();
+      else navigate('/employees?view=directory');
+    } catch (error) {
+      toast({
+        title: "Could not add employee",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const addWorkExperience = () => {
@@ -457,10 +514,10 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Admin">Admin</SelectItem>
-                            <SelectItem value="Team Member">Team Member</SelectItem>
+                            <SelectItem value="Employee">Employee</SelectItem>
                             <SelectItem value="Manager">Manager</SelectItem>
-                            <SelectItem value="Director">Director</SelectItem>
+                            <SelectItem value="HR">HR</SelectItem>
+                            <SelectItem value="Admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1329,6 +1386,28 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
             </Card>
           )}
           
+          {activeStep === steps.length - 1 && (
+            <Card className="border-dashed">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="send-invitation"
+                    checked={sendInvitation}
+                    onCheckedChange={(checked) => setSendInvitation(Boolean(checked))}
+                  />
+                  <div className="space-y-1">
+                    <label htmlFor="send-invitation" className="text-sm font-medium leading-none cursor-pointer">
+                      Send DDreamHR invitation now
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      The employee will receive secure workspace access using the role selected above. Clear this option to create the employee record without a login.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex justify-between mt-10">
             <Button
               type="button"
@@ -1348,7 +1427,7 @@ const EmployeeForm = ({ onSaved, onCancel }: { onSaved?: () => void; onCancel?: 
               </Button>
             ) : (
               <Button type="submit">
-                Submit
+                {sendInvitation ? 'Add & Invite Employee' : 'Create Employee Record'}
               </Button>
             )}
           </div>

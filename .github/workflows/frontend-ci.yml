@@ -2,14 +2,17 @@ name: Frontend CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main, functionality-stabilization]
+
+concurrency:
+  group: frontend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,5 +26,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build
         run: npm run build
+
+  migration-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start disposable local Supabase stack
+        run: supabase start
+
+      - name: Apply all migrations to an empty local database
+        run: supabase db reset --local
+
+      - name: Stop disposable local Supabase stack
+        if: always()
+        run: supabase stop --no-backup

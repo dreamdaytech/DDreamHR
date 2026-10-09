@@ -1,16 +1,22 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { DEMO_STORAGE_KEY, findDemoAccount, getStoredDemoUser } from '@/lib/demoAccounts';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'hr' | 'manager' | 'employee' | 'super_admin';
+  businessId?: string | null;
+  businessName?: string | null;
+  employeeId?: string | null;
+  employeeNumber?: string | null;
+  lifecycleState?: string | null;
+  employmentCondition?: string | null;
 }
 
 interface AuthContextType {
@@ -39,33 +45,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const fetchUserWithRole = async (supabaseUser: SupabaseUser): Promise<User | null> => {
-    const { data: profile, error } = await supabase
-      .from('user_profiles')
-      .select('user_id, first_name, last_name, role, is_super_admin, business_users(role)')
-      .eq('user_id', supabaseUser.id)
-      .single();
+  const fetchUserWithRole = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
+    const [{ data: profile, error: profileError }, { data: tenantContext, error: contextError }] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('user_id, first_name, last_name, role, is_super_admin')
+        .eq('user_id', supabaseUser.id)
+        .single(),
+      supabase.rpc('get_my_tenant_context'),
+    ]);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116: No rows found
-      console.error('Error fetching user profile:', error);
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Error fetching user profile:', profileError);
       toast({ title: 'Error', description: 'Could not fetch user profile.', variant: 'destructive' });
       return null;
     }
 
-    if (profile) {
-      const businessUser = Array.isArray(profile.business_users) ? profile.business_users[0] : profile.business_users;
-      const userRole = profile.is_super_admin ? 'super_admin' : (businessUser?.role || profile.role || 'employee');
-
-      const appUser: User = {
-        id: profile.user_id,
-        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || supabaseUser.email!,
-        email: supabaseUser.email!,
-        role: userRole as User['role'],
-      };
-      return appUser;
+    if (contextError) {
+      console.error('Error fetching tenant context:', contextError);
     }
-    return null;
-  };
+
+    if (!profile) return null;
+
+    const context = tenantContext as {
+      role?: User['role'];
+      business_id?: string | null;
+      business_name?: string | null;
+      employee_id?: string | null;
+      employee_number?: string | null;
+      lifecycle_state?: string | null;
+      employment_condition?: string | null;
+    } | null;
+
+    const userRole = profile.is_super_admin
+      ? 'super_admin'
+      : (context?.role || profile.role || 'employee');
+
+    return {
+      id: profile.user_id,
+      name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || supabaseUser.email || 'DDreamHR User',
+      email: supabaseUser.email || '',
+      role: userRole as User['role'],
+      businessId: context?.business_id ?? null,
+      businessName: context?.business_name ?? null,
+      employeeId: context?.employee_id ?? null,
+      employeeNumber: context?.employee_number ?? null,
+      lifecycleState: context?.lifecycle_state ?? null,
+      employmentCondition: context?.employment_condition ?? null,
+    };
+  }, [toast]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -73,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Restore a dev-only demo session if one exists
     const demo = getStoredDemoUser();
     if (demo) {
-      setUser({ id: demo.id, name: demo.name, email: demo.email, role: demo.role });
+      setUser({ id: demo.id, name: demo.name, email: demo.email, role: demo.role, businessId: null, employeeId: null });
       setIsLoading(false);
     }
 
@@ -101,13 +129,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchUserWithRole]);
 
   const login = async (email: string, password: string): Promise<User | null> => {
     // Dev-only demo accounts (no Supabase / email verification needed)
     const demo = findDemoAccount(email, password);
     if (demo) {
-      const demoUser: User = { id: demo.id, name: demo.name, email: demo.email, role: demo.role };
+      const demoUser: User = { id: demo.id, name: demo.name, email: demo.email, role: demo.role, businessId: null, employeeId: null };
       localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ id: demo.id }));
       setUser(demoUser);
       setIsLoading(false);

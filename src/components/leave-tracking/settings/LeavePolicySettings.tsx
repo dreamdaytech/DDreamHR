@@ -35,7 +35,7 @@ export const LeavePolicySettings: React.FC = () => {
     });
   };
 
-  const handlePolicyChange = (key: string, value: any) => {
+  const handlePolicyChange = <K extends keyof typeof policies>(key: K, value: (typeof policies)[K]) => {
     setPolicies(prev => ({
       ...prev,
       [key]: value

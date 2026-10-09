@@ -66,10 +66,10 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
         value: leaveType.value,
         label: leaveType.label,
         balance: leaveType.balance,
-        isPaid: (leaveType as any).isPaid ?? true,
-        visibility: (leaveType as any).visibility ?? 'individual',
-        description: (leaveType as any).description ?? '',
-        active: (leaveType as any).active ?? true
+        isPaid: leaveType.isPaid ?? true,
+        visibility: leaveType.visibility ?? 'individual',
+        description: leaveType.description ?? '',
+        active: leaveType.active ?? true
       });
       setEditingType(leaveType);
     } else {
@@ -90,7 +90,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
       return;
     }
 
-    const newLeaveType: LeaveType & any = {
+    const newLeaveType: LeaveType = {
       ...formData,
       value: formData.value.toLowerCase().replace(/\s+/g, '-')
     };
@@ -117,14 +117,14 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
   const toggleActive = (leaveType: LeaveType) => {
     const updatedTypes = leaveTypes.map(type => 
       type.value === leaveType.value 
-        ? { ...type, active: !(type as any).active }
+        ? { ...type, active: !type.active }
         : type
     );
     onUpdate(updatedTypes);
     
     toast({
       title: "Leave Type Updated",
-      description: `${leaveType.label} has been ${(leaveType as any).active ? 'deactivated' : 'activated'}.`
+      description: `${leaveType.label} has been ${leaveType.active ? 'deactivated' : 'activated'}.`
     });
   };
 
@@ -226,11 +226,11 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium">{leaveType.label}</h3>
-                  <Badge variant={(leaveType as any).isPaid ? 'default' : 'secondary'}>
-                    {(leaveType as any).isPaid ? 'Paid' : 'Unpaid'}
+                  <Badge variant={leaveType.isPaid ? 'default' : 'secondary'}>
+                    {leaveType.isPaid ? 'Paid' : 'Unpaid'}
                   </Badge>
-                  <Badge variant={(leaveType as any).active ? 'default' : 'destructive'}>
-                    {(leaveType as any).active ? 'Active' : 'Inactive'}
+                  <Badge variant={leaveType.active ? 'default' : 'destructive'}>
+                    {leaveType.active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -243,7 +243,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
                   size="sm"
                   onClick={() => toggleActive(leaveType)}
                 >
-                  {(leaveType as any).active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {leaveType.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
                 <Button
                   variant="ghost"

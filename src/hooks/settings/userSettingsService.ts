@@ -2,11 +2,12 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getUserIdAsString } from './utils';
 import type { UserSettings, UserProfile } from './types';
+import type { Json } from '@/integrations/supabase/types';
 
 export class UserSettingsService {
-  private handleError: (error: any, operation: string) => any;
+  private handleError: (error: unknown, operation: string) => unknown;
 
-  constructor(handleError: (error: any, operation: string) => any) {
+  constructor(handleError: (error: unknown, operation: string) => unknown) {
     this.handleError = handleError;
   }
 
@@ -73,7 +74,7 @@ export class UserSettingsService {
 
   async saveUserSettings(
     settingsType: 'profile' | 'preferences' | 'notifications',
-    settingsData: Record<string, any>,
+    settingsData: Record<string, Json>,
     userId?: string,
     retryCount = 0
   ) {
@@ -138,15 +139,18 @@ export class UserSettingsService {
     try {
       console.log('Updating user profile:', { profileData, targetUserId });
 
+      const allowedProfileData = {
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        phone: profileData.phone,
+        avatar_url: profileData.avatar_url,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: targetUserId,
-          ...profileData,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
-        });
+        .update(allowedProfileData)
+        .eq('user_id', targetUserId);
 
       if (error) {
         console.error('Error updating user profile:', error);

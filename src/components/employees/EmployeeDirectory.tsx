@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,10 +35,12 @@ import { useToast } from '@/hooks/use-toast';
 import EmployeeForm from '@/components/employees/EmployeeForm';
 import EmployeeFilter from '@/components/employees/EmployeeFilter';
 import EmployeeSettings from '@/components/employees/EmployeeSettings';
-import { downloadTextFile, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
+import { downloadTextFile, isDemoSession, readDemoData, toCsv, writeDemoData } from '@/lib/demoStore';
+import { createTenantEmployee, listTenantEmployees } from '@/services/tenantPeople';
+import { sendEmployeeInvitation, type EmployeeAccessRole } from '@/services/tenantInvitations';
 
 type Employee = {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   phone: string;
@@ -52,6 +54,105 @@ type Employee = {
 
 type StatusFilter = 'All' | 'Active' | 'Inactive' | 'Onboarding' | 'On Leave' | 'Probation' | 'Terminated';
 
+const seedEmployees: Employee[] = [
+  {
+    id: 1,
+    name: 'John Doe',
+    email: 'john.doe@dreamdayhr.com',
+    phone: '+1 (555) 123-4567',
+    department: 'Engineering',
+    position: 'Senior Frontend Developer',
+    location: 'San Francisco, CA',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2020-03-15'
+  },
+  {
+    id: 2,
+    name: 'Sarah Johnson',
+    email: 'sarah.johnson@dreamdayhr.com',
+    phone: '+1 (555) 987-6543',
+    department: 'Marketing',
+    position: 'Marketing Manager',
+    location: 'New York, NY',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2019-08-20'
+  },
+  {
+    id: 3,
+    name: 'Michael Rodriguez',
+    email: 'michael.rodriguez@dreamdayhr.com',
+    phone: '+1 (555) 456-7890',
+    department: 'Finance',
+    position: 'Financial Analyst',
+    location: 'Chicago, IL',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2021-01-10'
+  },
+  {
+    id: 4,
+    name: 'Emily Chen',
+    email: 'emily.chen@dreamdayhr.com',
+    phone: '+1 (555) 234-5678',
+    department: 'Product',
+    position: 'Product Manager',
+    location: 'Austin, TX',
+    status: 'Onboarding',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2024-11-01'
+  },
+  {
+    id: 5,
+    name: 'David Wilson',
+    email: 'david.wilson@dreamdayhr.com',
+    phone: '+1 (555) 345-6789',
+    department: 'Engineering',
+    position: 'Engineering Director',
+    location: 'Seattle, WA',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2018-05-12'
+  },
+  {
+    id: 6,
+    name: 'Olivia Taylor',
+    email: 'olivia.taylor@dreamdayhr.com',
+    phone: '+1 (555) 567-8901',
+    department: 'Customer Support',
+    position: 'Support Specialist',
+    location: 'Remote',
+    status: 'On Leave',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2022-03-25'
+  },
+  {
+    id: 7,
+    name: 'James Brown',
+    email: 'james.brown@dreamdayhr.com',
+    phone: '+1 (555) 678-9012',
+    department: 'Sales',
+    position: 'Sales Representative',
+    location: 'Miami, FL',
+    status: 'Active',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2023-07-08'
+  },
+  {
+    id: 8,
+    name: 'Sophia Garcia',
+    email: 'sophia.garcia@dreamdayhr.com',
+    phone: '+1 (555) 789-0123',
+    department: 'Human Resources',
+    position: 'HR Specialist',
+    location: 'Los Angeles, CA',
+    status: 'Probation',
+    imageUrl: '/placeholder.svg',
+    joiningDate: '2024-09-15'
+  },
+];
+
 const EmployeeDirectory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
@@ -64,111 +165,37 @@ const EmployeeDirectory = () => {
   const { toast } = useToast();
 
   // Mock employee data matching the reference design
-  const seedEmployees: Employee[] = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@dreamdayhr.com',
-      phone: '+1 (555) 123-4567',
-      department: 'Engineering',
-      position: 'Senior Frontend Developer',
-      location: 'San Francisco, CA',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2020-03-15'
-    },
-    {
-      id: 2,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@dreamdayhr.com',
-      phone: '+1 (555) 987-6543',
-      department: 'Marketing',
-      position: 'Marketing Manager',
-      location: 'New York, NY',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2019-08-20'
-    },
-    {
-      id: 3,
-      name: 'Michael Rodriguez',
-      email: 'michael.rodriguez@dreamdayhr.com',
-      phone: '+1 (555) 456-7890',
-      department: 'Finance',
-      position: 'Financial Analyst',
-      location: 'Chicago, IL',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2021-01-10'
-    },
-    {
-      id: 4,
-      name: 'Emily Chen',
-      email: 'emily.chen@dreamdayhr.com',
-      phone: '+1 (555) 234-5678',
-      department: 'Product',
-      position: 'Product Manager',
-      location: 'Austin, TX',
-      status: 'Onboarding',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2024-11-01'
-    },
-    {
-      id: 5,
-      name: 'David Wilson',
-      email: 'david.wilson@dreamdayhr.com',
-      phone: '+1 (555) 345-6789',
-      department: 'Engineering',
-      position: 'Engineering Director',
-      location: 'Seattle, WA',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2018-05-12'
-    },
-    {
-      id: 6,
-      name: 'Olivia Taylor',
-      email: 'olivia.taylor@dreamdayhr.com',
-      phone: '+1 (555) 567-8901',
-      department: 'Customer Support',
-      position: 'Support Specialist',
-      location: 'Remote',
-      status: 'On Leave',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2022-03-25'
-    },
-    {
-      id: 7,
-      name: 'James Brown',
-      email: 'james.brown@dreamdayhr.com',
-      phone: '+1 (555) 678-9012',
-      department: 'Sales',
-      position: 'Sales Representative',
-      location: 'Miami, FL',
-      status: 'Active',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2023-07-08'
-    },
-    {
-      id: 8,
-      name: 'Sophia Garcia',
-      email: 'sophia.garcia@dreamdayhr.com',
-      phone: '+1 (555) 789-0123',
-      department: 'Human Resources',
-      position: 'HR Specialist',
-      location: 'Los Angeles, CA',
-      status: 'Probation',
-      imageUrl: '/placeholder.svg',
-      joiningDate: '2024-09-15'
-    },
-  ];
+
 
   const [employees, setEmployees] = useState<Employee[]>(() => {
+    if (!isDemoSession()) return [];
     const stored = readDemoData<Employee[]>('employees', []);
     if (stored.length) return stored;
     writeDemoData('employees', seedEmployees);
     return seedEmployees;
   });
+
+  const refreshEmployees = useCallback(async () => {
+    if (isDemoSession()) {
+      setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
+      return;
+    }
+
+    try {
+      const rows = await listTenantEmployees();
+      setEmployees(rows as Employee[]);
+    } catch (error) {
+      toast({
+        title: 'Could not load employees',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void refreshEmployees();
+  }, [refreshEmployees]);
 
   const statusFilters: StatusFilter[] = ['All', 'Active', 'Inactive', 'Onboarding', 'On Leave', 'Probation', 'Terminated'];
 
@@ -186,7 +213,7 @@ const EmployeeDirectory = () => {
     return matchesSearch && matchesStatus && matchesDepartment;
   });
 
-  const handleViewEmployee = (id: number) => {
+  const handleViewEmployee = (id: string | number) => {
     navigate(`/employees/${id}`);
   };
 
@@ -205,6 +232,18 @@ const EmployeeDirectory = () => {
         const imported = rows.slice(1).map((row, index) => {
           const values = row.split(',').map((value) => value.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
           const record = Object.fromEntries(headers.map((header, i) => [header, values[i] || '']));
+          const normalizedRole = String(record.role || 'employee').trim().toLowerCase();
+          const accessRole: EmployeeAccessRole = ['admin', 'hr', 'manager', 'employee'].includes(normalizedRole)
+            ? normalizedRole as EmployeeAccessRole
+            : 'employee';
+          const inviteAccess = ['true', 'yes', '1', 'send', 'invite'].includes(
+            String(record.invite || record.sendInvitation || '').trim().toLowerCase(),
+          );
+
+          if (!String(record.email || '').includes('@')) {
+            throw new Error(`Row ${index + 2} is missing a valid work email.`);
+          }
+
           return {
             id: Number(record.id) || Date.now() + index,
             name: record.name || `Imported Employee ${index + 1}`,
@@ -213,15 +252,59 @@ const EmployeeDirectory = () => {
             department: record.department || 'Unassigned',
             position: record.position || 'Employee',
             location: record.location || 'Remote',
-            status: (record.status || 'Active') as Employee['status'],
+            status: (inviteAccess ? 'Onboarding' : (record.status || 'Active')) as Employee['status'],
             imageUrl: '/placeholder.svg',
             joiningDate: record.joiningDate || new Date().toISOString().split('T')[0],
-          } satisfies Employee;
+            accessRole,
+            inviteAccess,
+          };
         });
-        const next = [...imported, ...employees];
-        setEmployees(next);
-        writeDemoData('employees', next);
-        toast({ title: 'Import complete', description: `${imported.length} employee record(s) imported.` });
+        if (isDemoSession()) {
+          const next = [...imported, ...employees];
+          setEmployees(next);
+          writeDemoData('employees', next);
+        } else {
+          let invitationsSent = 0;
+          let invitationLinksNeeded = 0;
+
+          for (const [index, employee] of imported.entries()) {
+            const [firstName, ...lastNameParts] = employee.name.trim().split(/\s+/);
+            const created = await createTenantEmployee({
+              employeeId: `CSV-${Date.now()}-${index + 1}`,
+              firstName: firstName || 'Employee',
+              lastName: lastNameParts.join(' ') || 'User',
+              email: employee.email,
+              department: employee.department,
+              location: employee.location || 'Remote',
+              designation: employee.position,
+              role: employee.accessRole,
+              employmentType: 'Full-time',
+              status: employee.status,
+              sourceOfHire: 'CSV Import',
+              dateOfJoining: employee.joiningDate,
+              workPhone: employee.phone,
+            });
+
+            if (employee.inviteAccess) {
+              const invitation = await sendEmployeeInvitation(created.id, employee.accessRole);
+              if (invitation.delivery_status === 'sent') invitationsSent += 1;
+              else invitationLinksNeeded += 1;
+            }
+          }
+
+          await refreshEmployees();
+
+          if (invitationsSent || invitationLinksNeeded) {
+            toast({
+              title: 'Staff access invitations processed',
+              description: `${invitationsSent} email invitation(s) sent${invitationLinksNeeded ? `; ${invitationLinksNeeded} invitation(s) require a manual link from the Invitations list` : ''}.`,
+            });
+          }
+        }
+        toast({
+          title: 'Import complete',
+          description: `${imported.length} employee record(s) imported. Add columns "role" and "invite" (yes/no) to control workspace access in future CSVs.`,
+        });
       } catch (error) {
         toast({ title: 'Import failed', description: error instanceof Error ? error.message : 'Could not read CSV file.', variant: 'destructive' });
       }
@@ -275,9 +358,16 @@ const EmployeeDirectory = () => {
           <h1 className="text-2xl font-bold tracking-tight text-brand-gray">Employee Directory</h1>
           <p className="text-muted-foreground">Manage your employees and their information.</p>
         </div>
-        <Button onClick={() => setShowEmployeeForm(true)} className="w-full sm:w-auto bg-primary hover:bg-secondary active:bg-secondary">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
-        </Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          {!isDemoSession() && (
+            <Button variant="outline" onClick={() => navigate('/employees/invitations')} className="flex-1 sm:flex-none">
+              <Mail className="mr-2 h-4 w-4" /> Invitations
+            </Button>
+          )}
+          <Button onClick={() => setShowEmployeeForm(true)} className="flex-1 bg-primary hover:bg-secondary active:bg-secondary sm:flex-none">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Employee
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -451,7 +541,7 @@ const EmployeeDirectory = () => {
                 <EmployeeForm
                   onSaved={() => {
                     setShowEmployeeForm(false);
-                    setEmployees(readDemoData<Employee[]>('employees', seedEmployees));
+                    void refreshEmployees();
                   }}
                   onCancel={() => setShowEmployeeForm(false)}
                 />

@@ -1,15 +1,17 @@
 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { AttendanceRecord, BreakRecord } from '@/types/attendance';
+import { AttendanceRecord, BreakRecord, AttendanceSettings } from '@/types/attendance';
+import type { User } from '@/context/AuthContext';
 import { useLocationCheck } from '@/hooks/useLocationCheck';
 import { determineAttendanceStatus, calculateTotalHours } from '@/utils/attendanceUtils';
 import { getClientIpAddress } from '@/utils/locationUtils';
-import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, writeDemoData } from '@/lib/demoStore';
+import { createAttendanceCheckIn, updateAttendanceCheckOut } from '@/services/tenantAttendance';
 
 export function useCheckInOutService(
-  user: any,
-  attendanceSettings: any,
+  user: User | null,
+  attendanceSettings: AttendanceSettings,
   todayAttendance: AttendanceRecord | null,
   setTodayAttendance: React.Dispatch<React.SetStateAction<AttendanceRecord | null>>,
   setAttendanceRecords: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>,
@@ -55,33 +57,40 @@ export function useCheckInOutService(
       const currentTime = format(now, 'HH:mm');
       const clientIp = isDemoSession() ? 'demo-session' : await getClientIpAddress();
       
-      // Create attendance record
-      const newAttendance: AttendanceRecord = {
-        id: `att-${Date.now()}`,
-        employeeId: user.id,
-        employeeName: user.name,
-        date: format(now, 'yyyy-MM-dd'),
-        checkIn: currentTime,
-        checkOut: null,
-        totalHours: null,
-        status: determineAttendanceStatus(
-          currentTime, 
-          attendanceSettings.workingHoursStart, 
-          attendanceSettings.graceTimeLate
-        ),
-        location: locationName,
-        ipAddress: clientIp,
-        device: navigator.userAgent,
-        notes: null,
-        isRegularized: false
-      };
-      
-      console.log('Creating attendance record:', newAttendance);
-      
-      // In a real app, this would be an API call
-      // For now, we'll just update the state
+      const status = determineAttendanceStatus(
+        currentTime,
+        attendanceSettings.workingHoursStart,
+        attendanceSettings.graceTimeLate
+      );
+
+      const newAttendance: AttendanceRecord = isDemoSession()
+        ? {
+            id: `att-${Date.now()}`,
+            employeeId: user.id,
+            employeeName: user.name,
+            date: format(now, 'yyyy-MM-dd'),
+            checkIn: currentTime,
+            checkOut: null,
+            totalHours: null,
+            status,
+            location: locationName,
+            ipAddress: clientIp,
+            device: navigator.userAgent,
+            notes: null,
+            isRegularized: false,
+          }
+        : {
+            ...(await createAttendanceCheckIn({
+              locationName,
+              status,
+              ipAddress: clientIp,
+              device: navigator.userAgent,
+            })),
+            employeeName: user.name,
+          };
+
       setAttendanceRecords(prev => {
-        const next = [...prev, newAttendance];
+        const next = [...prev.filter((record) => record.id !== newAttendance.id), newAttendance];
         if (isDemoSession()) writeDemoData('attendance-records', next);
         return next;
       });
@@ -150,15 +159,22 @@ export function useCheckInOutService(
           totalHours = calculateTotalHours(checkInTime, currentTime);
         }
         
-        // Update attendance record
-        const updatedAttendance: AttendanceRecord = {
-          ...todayAttendance,
-          checkOut: currentTime,
-          totalHours
-        };
-        
-        // In a real app, this would be an API call
-        // For now, we'll just update the state
+        const updatedAttendance: AttendanceRecord = isDemoSession()
+          ? {
+              ...todayAttendance,
+              checkOut: currentTime,
+              totalHours,
+            }
+          : {
+              ...(await updateAttendanceCheckOut(todayAttendance.id, {
+                totalHours,
+                locationName: (await getNearestLocationName()) || todayAttendance.location,
+                ipAddress: await getClientIpAddress(),
+                device: navigator.userAgent,
+              })),
+              employeeName: user.name,
+            };
+
         setAttendanceRecords(prev => {
           const next = prev.map(record => record.id === todayAttendance.id ? updatedAttendance : record);
           if (isDemoSession()) writeDemoData('attendance-records', next);

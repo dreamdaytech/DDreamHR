@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getUserIdAsString } from './utils';
 
 export const setupRealtimeSubscriptions = (
@@ -52,7 +53,7 @@ export const setupRealtimeSubscriptions = (
     )
     .subscribe();
 
-  let systemSettingsChannel: any = null;
+  let systemSettingsChannel: RealtimeChannel | null = null;
   if (hasAdminAccess) {
     systemSettingsChannel = supabase
       .channel('system-settings-changes')

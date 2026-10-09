@@ -14,12 +14,14 @@ import {
 } from 'lucide-react';
 import { NavigationItem } from './types';
 
+type UserRole = NavigationItem['roles'][number];
+
 const regularRoles = ['admin', 'hr', 'manager', 'employee'] as const;
 const peopleRoles = ['admin', 'hr'] as const;
 const managerRoles = ['admin', 'hr', 'manager'] as const;
 const adminHrRoles = ['admin', 'hr'] as const;
 
-export const getNavigationItems = (userRole?: string): NavigationItem[] => {
+export const getNavigationItems = (userRole?: UserRole): NavigationItem[] => {
   if (userRole === 'super_admin') {
     return [
       {
@@ -94,7 +96,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     }
   ];
 
-  if (managerRoles.includes(userRole as any)) {
+  if (managerRoles.some((role) => role === userRole)) {
     items.push({
       name: 'Inbox',
       icon: Inbox,
@@ -103,7 +105,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     });
   }
 
-  if (peopleRoles.includes(userRole as any)) {
+  if (peopleRoles.some((role) => role === userRole)) {
     items.push({
       name: 'People',
       icon: Users,
@@ -113,6 +115,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
         { name: 'Overview', path: '/employees', roles: peopleRoles },
         { name: 'Employees', path: '/employees?view=directory', roles: peopleRoles },
         { name: 'New Hires', path: '/employees?view=new-hires', roles: peopleRoles },
+        { name: 'Staff Invitations', path: '/employees/invitations', roles: peopleRoles },
         { name: 'Employee Changes', path: '/employees?view=changes', roles: peopleRoles },
         { name: 'Offboarding', path: '/employees?view=offboarding', roles: peopleRoles },
         { name: 'Former Employees', path: '/employees?view=former', roles: peopleRoles }
@@ -152,7 +155,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     }
   );
 
-  if (adminHrRoles.includes(userRole as any)) {
+  if (adminHrRoles.some((role) => role === userRole)) {
     items.push({
       name: 'Payroll',
       icon: DollarSign,
@@ -201,7 +204,7 @@ export const getNavigationItems = (userRole?: string): NavigationItem[] => {
     }
   );
 
-  if (adminHrRoles.includes(userRole as any)) {
+  if (adminHrRoles.some((role) => role === userRole)) {
     items.push({
       name: 'Settings',
       icon: Settings,

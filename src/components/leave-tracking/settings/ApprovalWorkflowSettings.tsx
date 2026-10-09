@@ -35,7 +35,7 @@ export const ApprovalWorkflowSettings: React.FC = () => {
     });
   };
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = <K extends keyof typeof workflowSettings>(key: K, value: (typeof workflowSettings)[K]) => {
     setWorkflowSettings(prev => ({
       ...prev,
       [key]: value
@@ -56,7 +56,7 @@ export const ApprovalWorkflowSettings: React.FC = () => {
     setApprovalLevels(approvalLevels.filter(level => level.id !== id));
   };
 
-  const updateApprovalLevel = (id: number, field: string, value: any) => {
+  const updateApprovalLevel = <K extends keyof (typeof approvalLevels)[number]>(id: number, field: K, value: (typeof approvalLevels)[number][K]) => {
     setApprovalLevels(approvalLevels.map(level => 
       level.id === id ? { ...level, [field]: value } : level
     ));

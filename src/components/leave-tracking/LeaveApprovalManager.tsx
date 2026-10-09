@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { decideLeaveRequest, listPendingLeaveRequests } from '@/services/tenantLeave';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Users, 
@@ -18,98 +19,143 @@ import {
   Eye
 } from 'lucide-react';
 
+type LeaveTimelineItem = { date: string; action: string; by: string; comment?: string };
+type LeaveApprovalRequest = {
+  id: string | number; employee?: string; employeeName?: string; employeeId: string; type: string;
+  startDate: string; endDate: string; days: number; reason: string; appliedDate: string;
+  currentBalance: number; afterLeaveBalance: number; documents: string[]; status?: string;
+  timeline?: LeaveTimelineItem[]; approvedBy?: string;
+};
+
+const seedPendingRequests: LeaveApprovalRequest[] = [
+  {
+    id: 1,
+    employee: 'Sarah Johnson',
+    employeeId: 'EMP001',
+    type: 'Annual Leave',
+    startDate: '2024-12-28',
+    endDate: '2024-12-30',
+    days: 3,
+    reason: 'Family vacation during year-end holidays',
+    appliedDate: '2024-12-10',
+    currentBalance: 12,
+    afterLeaveBalance: 9,
+    documents: ['medical-certificate.pdf']
+  },
+  {
+    id: 2,
+    employee: 'Mike Chen',
+    employeeId: 'EMP002',
+    type: 'Sick Leave',
+    startDate: '2024-12-20',
+    endDate: '2024-12-21',
+    days: 2,
+    reason: 'Doctor advised rest due to flu symptoms',
+    appliedDate: '2024-12-19',
+    currentBalance: 8,
+    afterLeaveBalance: 6,
+    documents: []
+  },
+  {
+    id: 3,
+    employee: 'Emma Davis',
+    employeeId: 'EMP003',
+    type: 'Personal Leave',
+    startDate: '2024-12-22',
+    endDate: '2024-12-22',
+    days: 1,
+    reason: 'Important personal appointment that cannot be rescheduled',
+    appliedDate: '2024-12-15',
+    currentBalance: 3,
+    afterLeaveBalance: 2,
+    documents: []
+  }
+];
+
 export const LeaveApprovalManager = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveApprovalRequest | null>(null);
   const [comments, setComments] = useState('');
 
-  const seedPendingRequests = [
-    {
-      id: 1,
-      employee: 'Sarah Johnson',
-      employeeId: 'EMP001',
-      type: 'Annual Leave',
-      startDate: '2024-12-28',
-      endDate: '2024-12-30',
-      days: 3,
-      reason: 'Family vacation during year-end holidays',
-      appliedDate: '2024-12-10',
-      currentBalance: 12,
-      afterLeaveBalance: 9,
-      documents: ['medical-certificate.pdf']
-    },
-    {
-      id: 2,
-      employee: 'Mike Chen',
-      employeeId: 'EMP002',
-      type: 'Sick Leave',
-      startDate: '2024-12-20',
-      endDate: '2024-12-21',
-      days: 2,
-      reason: 'Doctor advised rest due to flu symptoms',
-      appliedDate: '2024-12-19',
-      currentBalance: 8,
-      afterLeaveBalance: 6,
-      documents: []
-    },
-    {
-      id: 3,
-      employee: 'Emma Davis',
-      employeeId: 'EMP003',
-      type: 'Personal Leave',
-      startDate: '2024-12-22',
-      endDate: '2024-12-22',
-      days: 1,
-      reason: 'Important personal appointment that cannot be rescheduled',
-      appliedDate: '2024-12-15',
-      currentBalance: 3,
-      afterLeaveBalance: 2,
-      documents: []
-    }
-  ];
 
-  const [pendingRequests, setPendingRequests] = useState<any[]>(() => {
-    const stored = readDemoData<any[]>('leave-requests', []).filter((request) => request.status === 'pending');
+
+  const [pendingRequests, setPendingRequests] = useState<LeaveApprovalRequest[]>(() => {
+    if (!isDemoSession()) return [];
+    const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []).filter((request) => request.status === 'pending');
     return stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' }));
   });
 
-  const handleApproval = (requestId: number, action: 'approve' | 'reject') => {
-    const request = pendingRequests.find((item) => item.id === requestId);
+  const refreshPendingRequests = useCallback(async () => {
+    if (isDemoSession()) {
+      const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []).filter((request) => request.status === 'pending');
+      setPendingRequests(stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' })));
+      return;
+    }
+
+    try {
+      setPendingRequests(await listPendingLeaveRequests());
+    } catch (error) {
+      toast({
+        title: 'Could not load leave approvals',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void refreshPendingRequests();
+  }, [refreshPendingRequests]);
+
+  const handleApproval = async (requestId: string | number, action: 'approve' | 'reject') => {
+    const request = pendingRequests.find((item) => String(item.id) === String(requestId));
     if (!request) return;
 
-    const nextStatus = action === 'approve' ? 'approved' : 'rejected';
-    const stored = readDemoData<any[]>('leave-requests', []);
-    const source = stored.length ? stored : pendingRequests;
-    const updated = source.map((item) =>
-      item.id === requestId
-        ? {
-            ...item,
-            status: nextStatus,
-            approvedBy: 'Demo Approver',
-            timeline: [
-              ...(item.timeline || []),
-              {
-                date: new Date().toISOString().split('T')[0],
-                action: action === 'approve' ? 'Approved' : 'Rejected',
-                by: 'Demo Approver',
-                comment: comments || undefined,
-              },
-            ],
-          }
-        : item,
-    );
+    try {
+      if (isDemoSession()) {
+        const nextStatus = action === 'approve' ? 'approved' : 'rejected';
+        const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []);
+        const source = stored.length ? stored : pendingRequests;
+        const updated = source.map((item) =>
+          String(item.id) === String(requestId)
+            ? {
+                ...item,
+                status: nextStatus,
+                approvedBy: 'Demo Approver',
+                timeline: [
+                  ...(item.timeline || []),
+                  {
+                    date: new Date().toISOString().split('T')[0],
+                    action: action === 'approve' ? 'Approved' : 'Rejected',
+                    by: 'Demo Approver',
+                    comment: comments || undefined,
+                  },
+                ],
+              }
+            : item,
+        );
+        writeDemoData('leave-requests', updated);
+      } else {
+        await decideLeaveRequest(String(requestId), action, comments);
+      }
 
-    writeDemoData('leave-requests', updated);
-    setPendingRequests((current) => current.filter((item) => item.id !== requestId));
+      await refreshPendingRequests();
 
-    toast({
-      title: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
-      description: `${request.employee || request.employeeName}'s leave request has been ${action}d.`,
-      variant: action === 'approve' ? 'default' : 'destructive'
-    });
+      toast({
+        title: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+        description: `${request.employee || request.employeeName}'s leave request has been ${action}d.`,
+        variant: action === 'approve' ? 'default' : 'destructive'
+      });
 
-    setComments('');
+      setComments('');
+    } catch (error) {
+      toast({
+        title: 'Could not update leave request',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isMobile) {

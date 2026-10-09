@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { getTenantContext } from '@/hooks/useTenantContext';
+
+type DemoPayrollEmployee = { id: string | number; employeeId?: string; name?: string; email?: string; department?: string; position?: string };
 
 export interface PayrollPeriod {
   id: string;
@@ -164,27 +167,35 @@ export const usePayroll = () => {
   const { toast } = useToast();
   const demo = isDemoSession();
 
-  const fetchPayrollPeriods = async () => {
+  const fetchPayrollPeriods = useCallback(async () => {
     if (demo) {
       setPayrollPeriods(readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods));
       return;
     }
     try {
-      const { data, error } = await supabase.from('payroll_periods').select('*').order('created_at', { ascending: false });
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
+      const { data, error } = await supabase
+        .from('payroll_periods')
+        .select('*')
+        .eq('business_id', context.businessId)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setPayrollPeriods(data || []);
     } catch (error) {
       console.error('Error fetching payroll periods:', error);
       toast({ title: 'Error', description: 'Failed to fetch payroll periods', variant: 'destructive' });
     }
-  };
+  }, [demo, toast]);
 
-  const fetchSalaryProfiles = async () => {
+  const fetchSalaryProfiles = useCallback(async () => {
     if (demo) {
       setSalaryProfiles(readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles));
       return;
     }
     try {
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
       const { data, error } = await supabase
         .from('employee_salary_profiles')
         .select(`
@@ -193,12 +204,13 @@ export const usePayroll = () => {
           salary_allowances (id, name, allowance_type, amount, is_taxable, is_active),
           salary_deductions (id, name, deduction_type, amount, percentage, is_mandatory, is_active)
         `)
+        .eq('business_id', context.businessId)
         .eq('is_active', true);
       if (error) throw error;
       setSalaryProfiles((data || []).map((profile) => ({
         id: profile.id,
         employee_id: profile.employee_id,
-        employee: profile.employees as any,
+        employee: Array.isArray(profile.employees) ? profile.employees[0] : profile.employees,
         basic_salary: profile.basic_salary,
         currency: profile.currency,
         effective_from: profile.effective_from,
@@ -211,7 +223,7 @@ export const usePayroll = () => {
       console.error('Error fetching salary profiles:', error);
       toast({ title: 'Error', description: 'Failed to fetch salary profiles', variant: 'destructive' });
     }
-  };
+  }, [demo, toast]);
 
   const fetchPayrollRecords = async (periodId: string) => {
     if (demo) {
@@ -232,7 +244,7 @@ export const usePayroll = () => {
       if (error) throw error;
       setPayrollRecords((data || []).map((record) => ({
         id: record.id,
-        employee: record.employees as any,
+        employee: Array.isArray(record.employees) ? record.employees[0] : record.employees,
         basic_salary: record.basic_salary,
         gross_salary: record.gross_salary,
         total_allowances: record.total_allowances,
@@ -251,7 +263,7 @@ export const usePayroll = () => {
     }
   };
 
-  const calculatePayrollSummary = async () => {
+  const calculatePayrollSummary = useCallback(async () => {
     if (demo) {
       const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
       const periods = readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods);
@@ -268,9 +280,25 @@ export const usePayroll = () => {
       return;
     }
     try {
-      const { count: totalEmployees } = await supabase.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      const { data: periods } = await supabase.from('payroll_periods').select('status, total_amount, total_employees');
-      const { data: recentRecords } = await supabase.from('payroll_records').select('payment_status').gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      const context = await getTenantContext();
+      if (!context?.businessId) return;
+      const { count: totalEmployees } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', context.businessId)
+        .eq('status', 'active');
+      const { data: periods } = await supabase
+        .from('payroll_periods')
+        .select('id,status,total_amount,total_employees')
+        .eq('business_id', context.businessId);
+      const periodIds = (periods || []).map((period) => period.id);
+      const { data: recentRecords } = periodIds.length
+        ? await supabase
+            .from('payroll_records')
+            .select('payment_status')
+            .in('payroll_period_id', periodIds)
+            .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        : { data: [] as Array<{ payment_status: string }> };
       setPayrollSummary({
         totalEmployees: totalEmployees || 0,
         paidEmployees: recentRecords?.filter((record) => record.payment_status === 'processed').length || 0,
@@ -283,7 +311,7 @@ export const usePayroll = () => {
     } catch (error) {
       console.error('Error calculating payroll summary:', error);
     }
-  };
+  }, [demo]);
 
   const createPayrollPeriod = async (periodData: Omit<PayrollPeriod, 'id'>) => {
     setLoading(true);
@@ -306,7 +334,14 @@ export const usePayroll = () => {
         return created;
       }
 
-      const { data, error } = await supabase.from('payroll_periods').insert([periodData]).select().single();
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const { data, error } = await supabase
+        .from('payroll_periods')
+        .insert([{ ...periodData, business_id: context.businessId }])
+        .select()
+        .single();
       if (error) throw error;
       await fetchPayrollPeriods();
       toast({ title: 'Success', description: 'Payroll period created successfully' });
@@ -336,9 +371,23 @@ export const usePayroll = () => {
         return;
       }
 
-      await supabase.from('payroll_periods').update({ status: 'in_progress' }).eq('id', periodId);
-      toast({ title: 'Success', description: 'Payroll processing started' });
-      await fetchPayrollPeriods();
+      const { data, error } = await supabase.rpc('process_payroll_period', {
+        target_period_id: periodId,
+      });
+      if (error) throw error;
+
+      await Promise.all([
+        fetchPayrollPeriods(),
+        fetchPayrollRecords(periodId),
+        calculatePayrollSummary(),
+      ]);
+      const employeeCount = typeof data === 'object' && data !== null && !Array.isArray(data) && typeof data.employees === 'number'
+        ? data.employees
+        : 0;
+      toast({
+        title: 'Payroll processed',
+        description: `${employeeCount} employee payroll record(s) completed successfully.`,
+      });
     } catch (error) {
       console.error('Error processing payroll:', error);
       toast({ title: 'Error', description: 'Failed to process payroll', variant: 'destructive' });
@@ -359,7 +408,21 @@ export const usePayroll = () => {
         return;
       }
 
-      const { error } = await supabase.from('employee_salary_profiles').update(updates).eq('id', profileId);
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const allowedUpdates = {
+        basic_salary: updates.basic_salary,
+        currency: updates.currency,
+        effective_from: updates.effective_from,
+        effective_to: updates.effective_to,
+        is_active: updates.is_active,
+      };
+      const { error } = await supabase
+        .from('employee_salary_profiles')
+        .update(allowedUpdates)
+        .eq('business_id', context.businessId)
+        .eq('id', profileId);
       if (error) throw error;
       await fetchSalaryProfiles();
       toast({ title: 'Success', description: 'Salary profile updated successfully' });
@@ -371,11 +434,81 @@ export const usePayroll = () => {
     }
   };
 
+  const createSalaryProfile = async (input: {
+    employee_id: string;
+    basic_salary: number;
+    currency?: string;
+    effective_from?: string;
+  }) => {
+    setLoading(true);
+    try {
+      if (demo) {
+        const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
+        const employees = readDemoData<DemoPayrollEmployee[]>('employees', []);
+        const employee = employees.find((item) => String(item.id) === String(input.employee_id) || String(item.employeeId) === String(input.employee_id));
+        const [firstName, ...lastParts] = String(employee?.name || 'Demo Employee').split(/\s+/);
+        const created: SalaryProfile = {
+          id: `SAL-${Date.now()}`,
+          employee_id: input.employee_id,
+          employee: {
+            first_name: firstName || 'Demo',
+            last_name: lastParts.join(' ') || 'Employee',
+            email: employee?.email || 'employee@demo.local',
+            department: employee?.department || 'General',
+            position: employee?.position || 'Employee',
+          },
+          basic_salary: input.basic_salary,
+          currency: input.currency || 'SLE',
+          effective_from: input.effective_from || new Date().toISOString().slice(0, 10),
+          is_active: true,
+          allowances: [],
+          deductions: [],
+        };
+        const next = [created, ...profiles];
+        writeDemoData('salary-profiles', next);
+        setSalaryProfiles(next);
+        toast({ title: 'Salary profile created', description: 'Demo compensation profile saved.' });
+        return created;
+      }
+
+      const context = await getTenantContext();
+      if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
+
+      const { data, error } = await supabase
+        .from('employee_salary_profiles')
+        .insert({
+          business_id: context.businessId,
+          employee_id: input.employee_id,
+          basic_salary: input.basic_salary,
+          currency: input.currency || 'SLE',
+          effective_from: input.effective_from || new Date().toISOString().slice(0, 10),
+          is_active: true,
+          created_by: context.userId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      await fetchSalaryProfiles();
+      toast({ title: 'Salary profile created', description: 'Compensation is now available for payroll.' });
+      return data;
+    } catch (error) {
+      toast({
+        title: 'Could not create salary profile',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPayrollPeriods();
     fetchSalaryProfiles();
     calculatePayrollSummary();
-  }, []);
+  }, [fetchPayrollPeriods, fetchSalaryProfiles, calculatePayrollSummary]);
 
   return {
     payrollPeriods,
@@ -388,6 +521,7 @@ export const usePayroll = () => {
     fetchSalaryProfiles,
     createPayrollPeriod,
     processPayroll,
+    createSalaryProfile,
     updateSalaryProfile,
     calculatePayrollSummary,
   };

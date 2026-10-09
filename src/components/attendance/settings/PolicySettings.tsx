@@ -48,7 +48,7 @@ export const PolicySettings: React.FC = () => {
     });
   };
 
-  const updatePolicy = (field: keyof AttendancePolicy, value: any) => {
+  const updatePolicy = <K extends keyof AttendancePolicy>(field: K, value: AttendancePolicy[K]) => {
     setPolicy(prev => ({ ...prev, [field]: value }));
   };
 

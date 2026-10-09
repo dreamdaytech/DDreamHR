@@ -2,11 +2,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getUserIdAsString } from './utils';
 import type { SystemSettings } from './types';
+import type { Json } from '@/integrations/supabase/types';
+import { getTenantContext } from '@/hooks/useTenantContext';
 
 export class SystemSettingsService {
-  private handleError: (error: any, operation: string) => any;
+  private handleError: (error: unknown, operation: string) => unknown;
 
-  constructor(handleError: (error: any, operation: string) => any) {
+  constructor(handleError: (error: unknown, operation: string) => unknown) {
     this.handleError = handleError;
   }
 
@@ -17,11 +19,13 @@ export class SystemSettingsService {
     }
 
     try {
-      console.log('Fetching system settings...');
-      
+      const context = await getTenantContext();
+      if (!context?.businessId) return [];
+
       const { data, error } = await supabase
         .from('system_settings')
         .select('*')
+        .eq('business_id', context.businessId)
         .order('category', { ascending: true });
 
       if (error) {
@@ -41,7 +45,7 @@ export class SystemSettingsService {
 
   async saveSystemSetting(
     settingKey: string,
-    settingValue: Record<string, any>,
+    settingValue: Record<string, Json>,
     category: string = 'general',
     description?: string,
     userId?: string,
@@ -60,7 +64,10 @@ export class SystemSettingsService {
     }
 
     try {
-      console.log('Saving system setting:', { settingKey, settingValue, category, userIdString });
+      const context = await getTenantContext();
+      if (!context?.businessId) {
+        throw new Error('No tenant is assigned to this account.');
+      }
 
       // Enhanced validation
       if (!settingKey || !settingKey.trim()) {
@@ -77,6 +84,7 @@ export class SystemSettingsService {
 
       // Prepare upsert data with proper timestamps
       const upsertData = {
+        business_id: context.businessId,
         setting_key: settingKey.trim(),
         setting_value: settingValue,
         category: category.trim(),
@@ -90,7 +98,7 @@ export class SystemSettingsService {
       const { error } = await supabase
         .from('system_settings')
         .upsert(upsertData, {
-          onConflict: 'setting_key'
+          onConflict: 'business_id,setting_key'
         });
 
       if (error) {
@@ -124,11 +132,13 @@ export class SystemSettingsService {
 
   async loadSystemSettings() {
     try {
-      console.log('Loading system settings from Supabase...');
-      
+      const context = await getTenantContext();
+      if (!context?.businessId) return [];
+
       const { data, error } = await supabase
         .from('system_settings')
-        .select('*');
+        .select('*')
+        .eq('business_id', context.businessId);
 
       if (error) {
         console.error('Failed to load system settings:', error);
@@ -143,7 +153,7 @@ export class SystemSettingsService {
     }
   }
 
-  async saveSystemSettings(settings: Record<string, any>, userId?: string, hasAdminAccess = false) {
+  async saveSystemSettings(settings: Record<string, Json>, userId?: string, hasAdminAccess = false) {
     try {
       console.log('Saving multiple system settings:', settings);
       

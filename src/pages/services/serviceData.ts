@@ -12,14 +12,15 @@ import {
   UserCheck,
   Briefcase,
   BookOpen,
-  UserX
+  UserX,
+  type LucideIcon,
 } from 'lucide-react';
 
 export interface ServiceItem {
   id: string;
   title: string;
   description: string;
-  icon: any;
+  icon: LucideIcon;
   iconColor: string;
   route: string;
   roles: string[];

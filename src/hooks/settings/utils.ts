@@ -1,6 +1,8 @@
 
 import { useToast } from '@/hooks/use-toast';
 
+type ErrorDetails = { code?: string; message?: string };
+
 // Helper function to safely convert user ID to string
 export const getUserIdAsString = (userId?: string | number) => {
   if (!userId) return null;
@@ -22,18 +24,19 @@ export const getUserIdAsString = (userId?: string | number) => {
 
 // Enhanced error handling function
 export const createErrorHandler = (toast: ReturnType<typeof useToast>['toast']) => {
-  return (error: any, operation: string) => {
+  return (error: unknown, operation: string) => {
+    const details: ErrorDetails = typeof error === 'object' && error !== null ? error as ErrorDetails : {};
     console.error(`Error during ${operation}:`, error);
     
     let errorMessage = `Failed to ${operation}`;
     
-    if (error?.code === '23505') {
+    if (details.code === '23505') {
       errorMessage = 'Setting already exists and cannot be duplicated';
     } else if (error?.code === '42501') {
       errorMessage = 'Permission denied: You do not have access to modify settings';
     } else if (error?.code === 'PGRST301') {
       errorMessage = 'Database connection error';
-    } else if (error?.message?.includes('uuid')) {
+    } else if (details.message?.includes('uuid')) {
       errorMessage = 'Invalid user ID format. Please ensure you are properly authenticated.';
     } else if (error?.message?.includes('infinite recursion')) {
       errorMessage = 'Database policy error. Please contact support.';

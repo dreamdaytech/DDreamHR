@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ReportExportOptionsProps {
   reportTitle: string;
-  data: any[];
+  data: object[];
   onPrint?: () => void;
 }
 

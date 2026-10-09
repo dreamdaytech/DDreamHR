@@ -37,7 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import EmployeeForm from '@/components/employees/EmployeeForm';
-import EmployeeFilter from '@/components/employees/EmployeeFilter';
+import EmployeeFilter, { type EmployeeFilterValues } from '@/components/employees/EmployeeFilter';
 import DepartmentForm from '@/components/employees/DepartmentForm';
 
 type Employee = {
@@ -271,7 +271,7 @@ const EmployeeList = () => {
     }
   };
 
-  const handleFilterApply = (filters: any) => {
+  const handleFilterApply = (filters: EmployeeFilterValues) => {
     toast({
       title: "Filters applied",
       description: "Employee list has been filtered according to your criteria"

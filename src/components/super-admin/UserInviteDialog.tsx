@@ -74,10 +74,10 @@ const UserInviteDialog: React.FC<UserInviteDialogProps> = ({ open, onOpenChange,
       });
       
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send invitation",
+        description: error instanceof Error ? error.message : "Failed to send invitation",
         variant: "destructive",
       });
     } finally {

@@ -9,15 +9,16 @@ import {
   Building2,
   Workflow,
   Bell,
+  type LucideIcon,
 } from 'lucide-react';
 
 export interface MenuItem {
   id: string;
   title: string;
-  icon: any;
+  icon: LucideIcon;
   route: string;
   iconColor: string;
-  roles: string[];
+  roles: Array<'admin' | 'hr' | 'manager' | 'employee'>;
   hasSubmenu?: boolean;
 }
 

@@ -64,7 +64,7 @@ const filterSchema = z.object({
 type FilterProps = {
   isOpen: boolean;
   onClose: () => void;
-  onApplyFilters: (filters: z.infer<typeof filterSchema>) => void;
+  onApplyFilters: (filters: EmployeeFilterValues) => void;
 };
 
 const EmployeeFilter = ({ isOpen, onClose, onApplyFilters }: FilterProps) => {

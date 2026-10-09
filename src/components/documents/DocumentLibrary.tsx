@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,10 +23,11 @@ import {
   Users,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadTextFile, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { downloadTextFile, isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { deleteTenantDocument, downloadTenantDocument, listTenantDocuments, uploadTenantDocuments } from '@/services/tenantDocuments';
 
 type Document = {
-  id: number;
+  id: string | number;
   name: string;
   type: 'pdf' | 'image' | 'spreadsheet' | 'document';
   category: 'HR Policies' | 'Employee' | 'Company' | 'Legal';
@@ -62,13 +63,36 @@ const formatFileSize = (bytes: number) => {
 
 const DocumentLibrary = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [documents, setDocuments] = useState<Document[]>(() => readDemoData<Document[]>('documents', seedDocuments));
+  const [documents, setDocuments] = useState<Document[]>(() =>
+    isDemoSession() ? readDemoData<Document[]>('documents', seedDocuments) : []
+  );
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const { toast } = useToast();
 
+  const refreshDocuments = useCallback(async () => {
+    if (isDemoSession()) {
+      setDocuments(readDemoData<Document[]>('documents', seedDocuments));
+      return;
+    }
+
+    try {
+      setDocuments(await listTenantDocuments() as Document[]);
+    } catch (error) {
+      toast({
+        title: 'Could not load documents',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void refreshDocuments();
+  }, [refreshDocuments]);
+
   const persist = (next: Document[]) => {
     setDocuments(next);
-    writeDemoData('documents', next);
+    if (isDemoSession()) writeDemoData('documents', next);
   };
 
   const filteredDocuments = documents.filter((doc) =>
@@ -81,43 +105,92 @@ const DocumentLibrary = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.onchange = () => {
+    input.onchange = async () => {
       const files = Array.from(input.files || []);
       if (!files.length) return;
-      const uploaded = files.map((file, index): Document => ({
-        id: Date.now() + index,
-        name: file.name,
-        type: getDocumentType(file),
-        category: 'Employee',
-        dateUploaded: new Date().toISOString().split('T')[0],
-        uploadedBy: 'Demo User',
-        size: formatFileSize(file.size),
-        accessLevel: 'Private',
-      }));
-      persist([...uploaded, ...documents]);
-      toast({ title: 'Upload complete', description: `${uploaded.length} document(s) added to the demo library.` });
+
+      try {
+        if (isDemoSession()) {
+          const uploaded = files.map((file, index): Document => ({
+            id: Date.now() + index,
+            name: file.name,
+            type: getDocumentType(file),
+            category: 'Employee',
+            dateUploaded: new Date().toISOString().split('T')[0],
+            uploadedBy: 'Demo User',
+            size: formatFileSize(file.size),
+            accessLevel: 'Private',
+          }));
+          persist([...uploaded, ...documents]);
+        } else {
+          await uploadTenantDocuments(files);
+          await refreshDocuments();
+        }
+
+        toast({ title: 'Upload complete', description: `${files.length} document(s) added to the library.` });
+      } catch (error) {
+        toast({
+          title: 'Upload failed',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'destructive',
+        });
+      }
     };
     input.click();
   };
 
-  const handleDownload = (documentId: number) => {
-    const doc = documents.find((item) => item.id === documentId);
+  const handleDownload = async (documentId: string | number) => {
+    const doc = documents.find((item) => String(item.id) === String(documentId));
     if (!doc) return;
-    const content = [
-      `DDreamHR demo document: ${doc.name}`,
-      `Category: ${doc.category}`,
-      `Uploaded: ${doc.dateUploaded}`,
-      `Uploaded by: ${doc.uploadedBy}`,
-      `Access: ${doc.accessLevel}`,
-    ].join('\n');
-    downloadTextFile(`${doc.name.replace(/[^a-z0-9._-]+/gi, '-')}.txt`, content);
-    toast({ title: 'Download started', description: doc.name });
+
+    try {
+      if (isDemoSession()) {
+        const content = [
+          `DDreamHR demo document: ${doc.name}`,
+          `Category: ${doc.category}`,
+          `Uploaded: ${doc.dateUploaded}`,
+          `Uploaded by: ${doc.uploadedBy}`,
+          `Access: ${doc.accessLevel}`,
+        ].join('\n');
+        downloadTextFile(`${doc.name.replace(/[^a-z0-9._-]+/gi, '-')}.txt`, content);
+      } else {
+        const { name, blob } = await downloadTenantDocument(String(documentId));
+        const url = URL.createObjectURL(blob);
+        const anchor = window.document.createElement('a');
+        anchor.href = url;
+        anchor.download = name;
+        window.document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+      toast({ title: 'Download started', description: doc.name });
+    } catch (error) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = (documentId: number) => {
-    const doc = documents.find((item) => item.id === documentId);
-    persist(documents.filter((item) => item.id !== documentId));
-    toast({ title: 'Document deleted', description: doc?.name || 'Document removed from demo library.' });
+  const handleDelete = async (documentId: string | number) => {
+    const doc = documents.find((item) => String(item.id) === String(documentId));
+    try {
+      if (isDemoSession()) {
+        persist(documents.filter((item) => String(item.id) !== String(documentId)));
+      } else {
+        await deleteTenantDocument(String(documentId));
+        await refreshDocuments();
+      }
+      toast({ title: 'Document deleted', description: doc?.name || 'Document removed from library.' });
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -185,9 +258,9 @@ const DocumentLibrary = () => {
 
 interface DocumentGridProps {
   documents: Document[];
-  onDownload: (documentId: number) => void;
-  onView: (documentId: number) => void;
-  onDelete: (documentId: number) => void;
+  onDownload: (documentId: string | number) => void;
+  onView: (documentId: string | number) => void;
+  onDelete: (documentId: string | number) => void;
 }
 
 const DocumentGrid = ({ documents, onDownload, onView, onDelete }: DocumentGridProps) => {

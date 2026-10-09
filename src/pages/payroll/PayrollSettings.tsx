@@ -55,7 +55,7 @@ const PayrollSettings = () => {
     });
   };
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = (key: keyof typeof settings, value: string | number | boolean) => {
     setSettings(prev => ({
       ...prev,
       [key]: value

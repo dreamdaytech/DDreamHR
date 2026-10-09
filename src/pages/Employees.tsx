@@ -5,12 +5,13 @@ import { MobileHeader } from '@/components/layout/MobileHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import PeopleOverview from '@/pages/people/PeopleOverview';
 import EmployeeChanges from '@/pages/people/EmployeeChanges';
+import EmployeeInvitations from '@/pages/people/EmployeeInvitations';
 import FormerEmployees from '@/pages/people/FormerEmployees';
 import Preboarding from '@/pages/hr-lifecycle/Preboarding';
 import Onboarding from '@/pages/hr-lifecycle/Onboarding';
 import Offboarding from '@/pages/hr-lifecycle/Offboarding';
 
-const viewValues = ['overview', 'directory', 'new-hires', 'changes', 'offboarding', 'former'] as const;
+const viewValues = ['overview', 'directory', 'new-hires', 'invitations', 'changes', 'offboarding', 'former'] as const;
 type PeopleView = typeof viewValues[number];
 
 const Employees = () => {
@@ -35,6 +36,7 @@ const Employees = () => {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="directory">Employees</TabsTrigger>
               <TabsTrigger value="new-hires">New Hires</TabsTrigger>
+              <TabsTrigger value="invitations">Invitations</TabsTrigger>
               <TabsTrigger value="changes">Employee Changes</TabsTrigger>
               <TabsTrigger value="offboarding">Offboarding</TabsTrigger>
               <TabsTrigger value="former">Former Employees</TabsTrigger>
@@ -62,6 +64,10 @@ const Employees = () => {
               <TabsContent value="preboarding"><Preboarding /></TabsContent>
               <TabsContent value="onboarding"><Onboarding /></TabsContent>
             </Tabs>
+          </TabsContent>
+
+          <TabsContent value="invitations" className="mt-0">
+            <EmployeeInvitations />
           </TabsContent>
 
           <TabsContent value="changes" className="mt-0">

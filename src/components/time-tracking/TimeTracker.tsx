@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { readDemoData, writeDemoData } from "@/lib/demoStore";
+import { isDemoSession, readDemoData, writeDemoData } from "@/lib/demoStore";
+import { createTenantProject, createTenantTask, listProjectsAndTasks, saveTenantTimeLog, type TenantProjectInput, type TenantTaskInput } from "@/services/tenantTime";
 import { useAuth } from "@/context/AuthContext";
 import { ProjectTaskManager } from "./ProjectTaskManager";
 import { TimerControls } from "./TimerControls";
@@ -37,14 +38,13 @@ const TimeTracker = () => {
   const [taskValidation, setTaskValidation] = useState<{ isValid: boolean; message: string }>({ isValid: true, message: "" });
 
   // Data state
-  const [projects, setProjects] = useState([
+  const seedProjects = [
     { id: "1", name: "DreamDay Website Redesign", assignedTo: ["all"], department: "Development", createdBy: "admin", dueDate: "2024-02-15" },
     { id: "2", name: "Mobile App Development", assignedTo: ["team-dev"], department: "Development", createdBy: "manager", dueDate: "2024-03-01" },
     { id: "3", name: "Internal HR Portal", assignedTo: ["team-hr"], department: "HR", createdBy: "hr", dueDate: "2024-02-28" },
     { id: "4", name: "Marketing Campaign Q1", assignedTo: ["team-marketing"], department: "Marketing", createdBy: "manager", dueDate: "2024-03-15" },
-  ]);
-
-  const [tasks, setTasks] = useState([
+  ];
+  const seedTasks = [
     { id: "1", name: "UI/UX Design", projectId: "1", estimatedHours: 20, assignedTo: "individual", status: "active" },
     { id: "2", name: "Frontend Development", projectId: "1", estimatedHours: 40, assignedTo: "team-dev", status: "active" },
     { id: "3", name: "Backend Integration", projectId: "1", estimatedHours: 30, assignedTo: "team-dev", status: "active" },
@@ -54,18 +54,31 @@ const TimeTracker = () => {
     { id: "7", name: "Content Strategy", projectId: "4", estimatedHours: 12, assignedTo: "team-marketing", status: "active" },
     { id: "8", name: "Testing & QA", projectId: "1", estimatedHours: 16, assignedTo: "individual", status: "active" },
     { id: "9", name: "Performance Optimization", projectId: "2", estimatedHours: 8, assignedTo: "individual", status: "active" },
-  ]);
+  ];
+
+  const [projects, setProjects] = useState(isDemoSession() ? seedProjects : []);
+  const [tasks, setTasks] = useState(isDemoSession() ? seedTasks : []);
+
+  useEffect(() => {
+    if (isDemoSession()) return;
+    void listProjectsAndTasks()
+      .then(({ projects: tenantProjects, tasks: tenantTasks }) => {
+        setProjects(tenantProjects);
+        setTasks(tenantTasks);
+      })
+      .catch((error) => console.error('Failed to load projects and tasks', error));
+  }, []);
 
   // Active timers for multiple tasks
   const [activeTimers, setActiveTimers] = useState<Record<string, { timer: number; isRunning: boolean; intervalId: number | null }>>({});
 
   const canManageProjects = hasRole(['admin', 'hr', 'manager']);
 
-  const getProjectTasks = (projectName: string) => {
+  const getProjectTasks = useCallback((projectName: string) => {
     const projectObj = projects.find(p => p.name === projectName);
     if (!projectObj) return [];
     return tasks.filter(t => t.projectId === projectObj.id && t.status === 'active');
-  };
+  }, [projects, tasks]);
 
   // Validation functions
   const validateProject = (projectName: string) => {
@@ -85,7 +98,7 @@ const TimeTracker = () => {
     return true;
   };
 
-  const validateTask = (taskName: string) => {
+  const validateTask = useCallback((taskName: string) => {
     if (!taskName.trim()) {
       setTaskValidation({ isValid: false, message: "Task name is required" });
       return false;
@@ -108,7 +121,7 @@ const TimeTracker = () => {
     
     setTaskValidation({ isValid: true, message: "" });
     return true;
-  };
+  }, [getProjectTasks, project]);
 
   useEffect(() => {
     if (projectInput) {
@@ -120,7 +133,7 @@ const TimeTracker = () => {
     if (taskInput && project) {
       validateTask(taskInput);
     }
-  }, [taskInput, project]);
+  }, [taskInput, project, validateTask]);
 
   // Timer management functions
   const startTaskTimer = (taskId: string) => {
@@ -302,7 +315,7 @@ const TimeTracker = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (timer === 0) {
@@ -314,25 +327,45 @@ const TimeTracker = () => {
       return;
     }
 
-    const log = {
-      id: Date.now().toString(),
-      userId: user?.id || 'demo-user',
-      date: date.toISOString().split('T')[0],
-      project,
-      task,
-      description,
-      seconds: timer,
-      hours: Number((timer / 3600).toFixed(2)),
-      billable: isBillable,
-      createdAt: new Date().toISOString(),
-    };
-    const existing = readDemoData<any[]>('time-logs', []);
-    writeDemoData('time-logs', [log, ...existing]);
+    try {
+      if (isDemoSession()) {
+        const log = {
+          id: Date.now().toString(),
+          userId: user?.id || 'demo-user',
+          date: date.toISOString().split('T')[0],
+          project,
+          task,
+          description,
+          seconds: timer,
+          hours: Number((timer / 3600).toFixed(2)),
+          billable: isBillable,
+          createdAt: new Date().toISOString(),
+        };
+        const existing = readDemoData<unknown[]>('time-logs', []);
+        writeDemoData('time-logs', [log, ...existing]);
+      } else {
+        await saveTenantTimeLog({
+          date,
+          projectName: project,
+          taskName: task,
+          description,
+          seconds: timer,
+          billable: isBillable,
+        });
+      }
 
-    toast({
-      title: "Time Log Saved",
-      description: `${formatTime(timer)} logged for ${project || 'unassigned project'}`,
-    });
+      toast({
+        title: "Time Log Saved",
+        description: `${formatTime(timer)} logged for ${project || 'unassigned project'}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not save time log",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     resetTimer();
     setProject("");
@@ -372,49 +405,69 @@ const TimeTracker = () => {
     }
   };
 
-  const handleAddProject = (newProject: any) => {
-    const projectWithDefaults = {
-      ...newProject,
-      id: Date.now().toString(),
-      createdBy: user?.id || 'current-user',
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    };
-    
-    setProjects(prev => [...prev, projectWithDefaults]);
-    setShowProjectDialog(false);
-    
-    toast({
-      title: "Project Created",
-      description: `${newProject.name} has been created and assigned successfully.`,
-      action: (
-        <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm">Ready to use</span>
-        </div>
-      ),
-    });
+  const handleAddProject = async (newProject: TenantProjectInput) => {
+    try {
+      const projectWithDefaults = isDemoSession()
+        ? {
+            ...newProject,
+            id: Date.now().toString(),
+            createdBy: user?.id || 'current-user',
+            dueDate: newProject.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          }
+        : await createTenantProject(newProject);
+
+      setProjects(prev => [...prev, projectWithDefaults]);
+      setShowProjectDialog(false);
+
+      toast({
+        title: "Project Created",
+        description: `${newProject.name} has been created and assigned successfully.`,
+        action: (
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-sm">Ready to use</span>
+          </div>
+        ),
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not create project',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleAddTask = (newTask: any) => {
-    const taskWithDefaults = {
-      ...newTask,
-      id: Date.now().toString(),
-      assignedTo: "individual",
-      status: "active"
-    };
-    
-    setTasks(prev => [...prev, taskWithDefaults]);
-    
-    toast({
-      title: "Task Created",
-      description: `${newTask.name} has been added to the project.`,
-      action: (
-        <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm">Available for tracking</span>
-        </div>
-      ),
-    });
+  const handleAddTask = async (newTask: TenantTaskInput) => {
+    try {
+      const taskWithDefaults = isDemoSession()
+        ? {
+            ...newTask,
+            id: Date.now().toString(),
+            assignedTo: "individual",
+            status: "active",
+          }
+        : await createTenantTask(newTask);
+
+      setTasks(prev => [...prev, taskWithDefaults]);
+
+      toast({
+        title: "Task Created",
+        description: `${newTask.name} has been added to the project.`,
+        action: (
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-sm">Available for tracking</span>
+          </div>
+        ),
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not create task',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

@@ -3,6 +3,10 @@ export interface LeaveType {
   value: string;
   label: string;
   balance: number;
+  isPaid?: boolean;
+  visibility?: 'individual' | 'team';
+  description?: string;
+  active?: boolean;
 }
 
 export const leaveTypes: LeaveType[] = [

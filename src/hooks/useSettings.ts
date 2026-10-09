@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { createErrorHandler } from './settings/utils';
@@ -8,6 +8,7 @@ import { SystemSettingsService } from './settings/systemSettingsService';
 import { setupRealtimeSubscriptions } from './settings/realtimeSubscriptions';
 import type { UserSettings, SystemSettings, UserProfile, UserSettingsData } from './settings/types';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import type { Json } from '@/integrations/supabase/types';
 
 export const useSettings = () => {
   const { user } = useAuth();
@@ -20,18 +21,18 @@ export const useSettings = () => {
   const demo = isDemoSession();
 
   // Get current user's role for access control
-  const hasAdminAccess = user?.role === 'admin';
-  const hasHRAccess = user?.role === 'hr' || user?.role === 'admin';
+  const hasAdminAccess = user?.role === 'admin' || user?.role === 'hr';
+  const hasHRAccess = hasAdminAccess;
 
   // Create error handler
-  const handleError = createErrorHandler(toast);
+  const handleError = useMemo(() => createErrorHandler(toast), [toast]);
 
   // Create service instances
-  const userSettingsService = new UserSettingsService(handleError);
-  const systemSettingsService = new SystemSettingsService(handleError);
+  const userSettingsService = useMemo(() => new UserSettingsService(handleError), [handleError]);
+  const systemSettingsService = useMemo(() => new SystemSettingsService(handleError), [handleError]);
 
   // Fetch functions with proper user ID handling
-  const fetchUserSettings = async (userId?: string) => {
+  const fetchUserSettings = useCallback(async (userId?: string) => {
     // Use proper user ID from auth context
     const targetUserId = userId || user?.id;
     if (!targetUserId) {
@@ -46,9 +47,9 @@ export const useSettings = () => {
 
     const data = await userSettingsService.fetchUserSettings(String(targetUserId));
     setUserSettings(data);
-  };
+  }, [demo, user?.id, userSettingsService]);
 
-  const fetchUserProfile = async (userId?: string) => {
+  const fetchUserProfile = useCallback(async (userId?: string) => {
     // Use proper user ID from auth context
     const targetUserId = userId || user?.id;
     if (!targetUserId) {
@@ -63,21 +64,21 @@ export const useSettings = () => {
 
     const data = await userSettingsService.fetchUserProfile(String(targetUserId));
     setUserProfile(data);
-  };
+  }, [demo, user?.id, userSettingsService]);
 
-  const fetchSystemSettings = async () => {
+  const fetchSystemSettings = useCallback(async () => {
     if (demo) {
       setSystemSettings(readDemoData<SystemSettings[]>('system-settings', []));
       return;
     }
     const data = await systemSettingsService.fetchSystemSettings(hasAdminAccess);
     setSystemSettings(data);
-  };
+  }, [demo, hasAdminAccess, systemSettingsService]);
 
   // Save functions with enhanced error handling and toast notifications
   const saveUserSettings = async (
     settingsType: 'profile' | 'preferences' | 'notifications',
-    settingsData: Record<string, any>,
+    settingsData: Record<string, Json>,
     userId?: string
   ) => {
     setIsSaving(true);
@@ -88,7 +89,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any[]>(`user-settings:${targetUserId}`, []);
+        const current = readDemoData<UserSettings[]>(`user-settings:${targetUserId}`, []);
         const existingIndex = current.findIndex((item) => item.settings_type === settingsType);
         const record = {
           id: existingIndex >= 0 ? current[existingIndex].id : `demo-user-setting-${Date.now()}`,
@@ -130,7 +131,7 @@ export const useSettings = () => {
 
   const saveSystemSetting = async (
     settingKey: string,
-    settingValue: Record<string, any>,
+    settingValue: Record<string, Json>,
     category: string = 'general',
     description?: string
   ) => {
@@ -142,7 +143,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any[]>('system-settings', []);
+        const current = readDemoData<SystemSettings[]>('system-settings', []);
         const existingIndex = current.findIndex((item) => item.setting_key === settingKey);
         const record = {
           id: existingIndex >= 0 ? current[existingIndex].id : `demo-system-setting-${Date.now()}`,
@@ -200,7 +201,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any>(`user-profile:${targetUserId}`, {});
+        const current = readDemoData<Partial<UserProfile>>(`user-profile:${targetUserId}`, {});
         const next = { ...current, ...profileData, user_id: String(targetUserId), updated_at: new Date().toISOString() };
         writeDemoData(`user-profile:${targetUserId}`, next);
         setUserProfile(next as UserProfile);
@@ -235,9 +236,9 @@ export const useSettings = () => {
   };
 
   // Get system setting with caching
-  const getSystemSetting = (settingKey: string): Record<string, any> | null => {
+  const getSystemSetting = (settingKey: string): Record<string, Json> | null => {
     const setting = systemSettings.find(s => s.setting_key === settingKey);
-    return setting?.setting_value as Record<string, any> || null;
+    return setting?.setting_value as Record<string, Json> || null;
   };
 
   // Load system settings function
@@ -258,7 +259,7 @@ export const useSettings = () => {
   };
 
   // Save multiple system settings function
-  const saveSystemSettings = async (settings: Record<string, any>) => {
+  const saveSystemSettings = async (settings: Record<string, Json>) => {
     setIsSaving(true);
     try {
       const targetUserId = user?.id;
@@ -316,7 +317,7 @@ export const useSettings = () => {
         return;
       }
 
-      console.log('Loading settings data for user:', user);
+      console.log('Loading settings data for user ID:', user.id);
       setIsLoading(true);
       
       try {
@@ -333,7 +334,7 @@ export const useSettings = () => {
     };
 
     loadData();
-  }, [user?.id, hasAdminAccess]);
+  }, [user?.id, hasAdminAccess, fetchUserSettings, fetchUserProfile, fetchSystemSettings]);
 
   // Set up real-time subscriptions with error handling
   useEffect(() => {
@@ -350,7 +351,7 @@ export const useSettings = () => {
     );
 
     return cleanup;
-  }, [user?.id, hasAdminAccess]);
+  }, [user?.id, hasAdminAccess, demo, fetchUserSettings, fetchUserProfile, fetchSystemSettings]);
 
   return {
     userSettings,

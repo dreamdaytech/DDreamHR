@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/context/AuthContext';
-import { downloadTextFile, readDemoData, toCsv } from '@/lib/demoStore';
+import { downloadTextFile, isDemoSession, readDemoData, toCsv } from '@/lib/demoStore';
+import { listLeaveHistory } from '@/services/tenantLeave';
 import { LeaveDetailsModal } from './components/LeaveDetailsModal';
 import { 
   History, 
@@ -22,16 +23,39 @@ import {
   Users
 } from 'lucide-react';
 
+type LeaveHistoryItem = {
+  id: string | number; employeeId?: string; employeeName: string; employee?: string;
+  employeeNumber?: string; type: string; startDate: string; endDate: string; days: number;
+  status: string; appliedDate: string; approvedBy?: string | null; reason: string;
+  documents?: string[]; timeline?: { date?: string; action: string; by?: string; comment?: string }[];
+};
+
 export const LeaveHistory = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [selectedLeave, setSelectedLeave] = useState<any>(null);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveHistoryItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isManagerOrAbove = user?.role && ['manager', 'hr', 'admin'].includes(user.role);
+  const [realPersonalLeaveHistory, setRealPersonalLeaveHistory] = useState<LeaveHistoryItem[]>([]);
+  const [realTeamLeaveHistory, setRealTeamLeaveHistory] = useState<LeaveHistoryItem[]>([]);
+
+  useEffect(() => {
+    if (isDemoSession()) return;
+
+    void Promise.all([
+      listLeaveHistory(false),
+      isManagerOrAbove ? listLeaveHistory(true) : Promise.resolve([]),
+    ]).then(([personal, team]) => {
+      setRealPersonalLeaveHistory(personal);
+      setRealTeamLeaveHistory(team.filter((leave) => !personal.some((mine) => mine.id === leave.id)));
+    }).catch((error) => {
+      console.error('Could not load leave history', error);
+    });
+  }, [isManagerOrAbove]);
 
   const seedPersonalLeaveHistory = [
     {
@@ -81,17 +105,20 @@ export const LeaveHistory = () => {
     }
   ];
 
-  const storedLeaveRequests = readDemoData<any[]>('leave-requests', []);
-  const personalLeaveHistory = [
-    ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
-    ...seedPersonalLeaveHistory,
-  ];
+  const storedLeaveRequests = readDemoData<LeaveHistoryItem[]>('leave-requests', []);
+  const personalLeaveHistory = isDemoSession()
+    ? [
+        ...storedLeaveRequests.filter((leave) => leave.employeeId === user?.id),
+        ...seedPersonalLeaveHistory,
+      ]
+    : realPersonalLeaveHistory;
 
-  const teamLeaveHistory = [
-    ...storedLeaveRequests
-      .filter((leave) => leave.employeeId !== user?.id)
-      .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
-    {
+  const teamLeaveHistory = isDemoSession()
+    ? [
+        ...storedLeaveRequests
+          .filter((leave) => leave.employeeId !== user?.id)
+          .map((leave) => ({ ...leave, employeeName: leave.employeeName || leave.employee || 'Employee' })),
+        {
       id: 4,
       type: 'Annual Leave',
       employeeName: 'Sarah Johnson',
@@ -115,7 +142,8 @@ export const LeaveHistory = () => {
       approvedBy: null,
       reason: 'Medical procedure'
     }
-  ];
+      ]
+    : realTeamLeaveHistory;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -154,12 +182,12 @@ export const LeaveHistory = () => {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const openDetailsModal = (leave: any) => {
+  const openDetailsModal = (leave: LeaveHistoryItem) => {
     setSelectedLeave(leave);
     setIsModalOpen(true);
   };
 
-  const renderMobileLeaveCard = (leave: any, isTeam = false) => (
+  const renderMobileLeaveCard = (leave: LeaveHistoryItem, isTeam = false) => (
     <div key={leave.id} className="border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -196,7 +224,7 @@ export const LeaveHistory = () => {
     </div>
   );
 
-  const renderDesktopTable = (history: any[], isTeam = false) => (
+  const renderDesktopTable = (history: LeaveHistoryItem[], isTeam = false) => (
     <div className="border rounded-lg">
       <Table>
         <TableHeader>

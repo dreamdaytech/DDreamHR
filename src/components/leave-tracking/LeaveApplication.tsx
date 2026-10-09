@@ -8,7 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { readDemoData, writeDemoData } from '@/lib/demoStore';
+import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import { submitLeaveRequest } from '@/services/tenantLeave';
 
 // Import new components
 import { LeaveTypeSelector } from './components/LeaveTypeSelector';
@@ -43,7 +44,7 @@ export const LeaveApplication = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateLeaveForm(formData.leaveType, formData.startDate, formData.reason)) {
@@ -55,33 +56,53 @@ export const LeaveApplication = () => {
       return;
     }
 
-    const selectedType = leaveTypes.find((type) => type.value === formData.leaveType);
-    const request = {
-      id: Date.now(),
-      employee: user?.name || 'Demo Employee',
-      employeeName: user?.name || 'Demo Employee',
-      employeeId: user?.id || 'demo-employee',
-      type: selectedType?.label || formData.leaveType,
-      startDate: formData.startDate!.toISOString().split('T')[0],
-      endDate: (formData.endDate || formData.startDate)!.toISOString().split('T')[0],
-      days: calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay),
-      status: 'pending',
-      appliedDate: new Date().toISOString().split('T')[0],
-      approvedBy: null,
-      reason: formData.reason,
-      documents: formData.documents.map((file) => file.name),
-      currentBalance: selectedType?.balance ?? 15,
-      afterLeaveBalance: Math.max(0, (selectedType?.balance ?? 15) - calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay)),
-      timeline: [{ date: new Date().toISOString().split('T')[0], action: 'Request Submitted', by: user?.name || 'You' }],
-    };
+    try {
+      const selectedType = leaveTypes.find((type) => type.value === formData.leaveType);
 
-    const existing = readDemoData<any[]>('leave-requests', []);
-    writeDemoData('leave-requests', [request, ...existing]);
+      if (isDemoSession()) {
+        const request = {
+          id: Date.now(),
+          employee: user?.name || 'Demo Employee',
+          employeeName: user?.name || 'Demo Employee',
+          employeeId: user?.id || 'demo-employee',
+          type: selectedType?.label || formData.leaveType,
+          startDate: formData.startDate!.toISOString().split('T')[0],
+          endDate: (formData.endDate || formData.startDate)!.toISOString().split('T')[0],
+          days: calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay),
+          status: 'pending',
+          appliedDate: new Date().toISOString().split('T')[0],
+          approvedBy: null,
+          reason: formData.reason,
+          documents: formData.documents.map((file) => file.name),
+          currentBalance: selectedType?.balance ?? 15,
+          afterLeaveBalance: Math.max(0, (selectedType?.balance ?? 15) - calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay)),
+          timeline: [{ date: new Date().toISOString().split('T')[0], action: 'Request Submitted', by: user?.name || 'You' }],
+        };
+        const existing = readDemoData<unknown[]>('leave-requests', []);
+        writeDemoData('leave-requests', [request, ...existing]);
+      } else {
+        await submitLeaveRequest({
+          leaveType: formData.leaveType,
+          startDate: formData.startDate!,
+          endDate: formData.endDate,
+          halfDay: formData.halfDay,
+          reason: formData.reason,
+          documents: formData.documents,
+        });
+      }
 
-    toast({
-      title: "Leave Request Submitted",
-      description: "Your leave request is now visible in Leave History and manager approvals.",
-    });
+      toast({
+        title: "Leave Request Submitted",
+        description: "Your leave request is now visible in Leave History and manager approvals.",
+      });
+    } catch (error) {
+      toast({
+        title: "Could not submit leave request",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Reset form
     setFormData({

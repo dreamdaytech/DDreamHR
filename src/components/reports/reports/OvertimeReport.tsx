@@ -21,6 +21,14 @@ interface OvertimeReportProps {
   userRole?: string;
 }
 
+interface OvertimeAggregate {
+  employeeId: string;
+  employeeName: string;
+  totalOvertimeHours: number;
+  approvedHours: number;
+  pendingHours: number;
+}
+
 interface OvertimeData {
   employeeId: string;
   employeeName: string;
@@ -40,27 +48,12 @@ export const OvertimeReport: React.FC<OvertimeReportProps> = ({
   userRole
 }) => {
   const [overtimeData, setOvertimeData] = useState<OvertimeData[]>([]);
-  const [aggregatedData, setAggregatedData] = useState<any[]>([]);
+  const [aggregatedData, setAggregatedData] = useState<OvertimeAggregate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Check if user has proper access
-  if (userRole !== 'admin' && userRole !== 'hr' && userRole !== 'manager') {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Overtime Report</CardTitle>
-          <CardDescription>Access denied</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            You don't have permission to access overtime data.
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   useEffect(() => {
+    if (userRole !== 'admin' && userRole !== 'hr' && userRole !== 'manager') return;
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -159,7 +152,26 @@ export const OvertimeReport: React.FC<OvertimeReportProps> = ({
     };
 
     fetchData();
-  }, [startDate, endDate, department, location, employee]);
+  }, [startDate, endDate, department, location, employee, userRole]);
+
+  // Check if user has proper access
+  if (userRole !== 'admin' && userRole !== 'hr' && userRole !== 'manager') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Overtime Report</CardTitle>
+          <CardDescription>Access denied</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            You don't have permission to access overtime data.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+
 
   return (
     <Card>
