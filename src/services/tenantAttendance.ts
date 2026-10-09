@@ -290,53 +290,31 @@ export const createRegularizationRequest = async (
 export const decideRegularizationRequest = async (
   requestId: string,
   action: 'Approved' | 'Rejected',
-  attendanceSettings: AttendanceSettings,
+  _attendanceSettings: AttendanceSettings,
 ) => {
   const context = await getTenantContext();
   if (!context?.businessId) throw new Error('No tenant is assigned to this account.');
 
-  const { data: request, error: fetchError } = await supabase
+  // The database function authorizes the reviewer, locks the request, applies
+  // the attendance mutation, and changes request status in one transaction.
+  const { data, error } = await supabase.rpc('decide_attendance_regularization', {
+    p_request_id: requestId,
+    p_action: action,
+    p_review_comment: null,
+  });
+
+  if (error) throw error;
+
+  const { data: updated, error: fetchError } = await supabase
     .from('regularization_requests')
-    .select('*')
+    .select('*, employees!inner(first_name,last_name)')
     .eq('business_id', context.businessId)
     .eq('id', requestId)
     .single();
 
   if (fetchError) throw fetchError;
-
-  const { data: updated, error } = await supabase
-    .from('regularization_requests')
-    .update({
-      status: action,
-      reviewer_id: context.userId,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', requestId)
-    .eq('status', 'Pending')
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  if (action === 'Approved' && request.attendance_id) {
-    const patch: Database['public']['Tables']['attendance_records']['Update'] = { is_regularized: true };
-    if (request.request_type === 'Check-In' && request.requested_check_in) {
-      patch.check_in = request.requested_check_in;
-    } else if (request.request_type === 'Check-Out' && request.requested_check_out) {
-      patch.check_out = request.requested_check_out;
-    } else if (request.request_type === 'Full Day') {
-      patch.status = 'Present';
-      patch.check_in = new Date(`${request.requested_date}T${attendanceSettings.workingHoursStart}:00`).toISOString();
-      patch.check_out = new Date(`${request.requested_date}T${attendanceSettings.workingHoursEnd}:00`).toISOString();
-    }
-
-    const { error: attendanceError } = await supabase
-      .from('attendance_records')
-      .update(patch)
-      .eq('id', request.attendance_id);
-
-    if (attendanceError) throw attendanceError;
-  }
-
-  return mapRegularization(updated);
+  return mapRegularization(
+    updated,
+    `${updated.employees?.first_name || ''} ${updated.employees?.last_name || ''}`.trim() || 'Employee',
+  );
 };
