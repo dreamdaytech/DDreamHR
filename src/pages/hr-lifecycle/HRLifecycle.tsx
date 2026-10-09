@@ -29,7 +29,7 @@ const HRLifecycle = () => {
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
       route: '/hr-lifecycle/preboarding',
-      roles: ['admin', 'hr'],
+      roles: ['admin', 'hr'] as const,
       stats: { pending: 5, completed: 12 }
     },
     {
@@ -41,7 +41,7 @@ const HRLifecycle = () => {
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       route: '/hr-lifecycle/onboarding',
-      roles: ['admin', 'hr', 'manager'],
+      roles: ['admin', 'hr', 'manager'] as const,
       stats: { active: 8, thisWeek: 3 }
     },
     {
@@ -53,7 +53,7 @@ const HRLifecycle = () => {
       bgColor: 'bg-teal-50',
       borderColor: 'border-teal-200',
       route: '/hr-lifecycle/portal',
-      roles: ['admin', 'hr', 'manager', 'employee'],
+      roles: ['admin', 'hr', 'manager', 'employee'] as const,
       stats: { users: 45, completion: '87%' }
     },
     {
@@ -75,7 +75,7 @@ const HRLifecycle = () => {
   };
 
   const filteredModules = lifecycleModules.filter(module => 
-    hasRole(module.roles as any)
+    hasRole(module.roles)
   );
 
   return (
