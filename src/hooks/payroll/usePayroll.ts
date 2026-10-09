@@ -4,6 +4,8 @@ import { useToast } from '@/hooks/use-toast';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
 import { getTenantContext } from '@/hooks/useTenantContext';
 
+type DemoPayrollEmployee = { id: string | number; employeeId?: string; name?: string; email?: string; department?: string; position?: string };
+
 export interface PayrollPeriod {
   id: string;
   period_name: string;
@@ -208,7 +210,7 @@ export const usePayroll = () => {
       setSalaryProfiles((data || []).map((profile) => ({
         id: profile.id,
         employee_id: profile.employee_id,
-        employee: profile.employees as any,
+        employee: Array.isArray(profile.employees) ? profile.employees[0] : profile.employees,
         basic_salary: profile.basic_salary,
         currency: profile.currency,
         effective_from: profile.effective_from,
@@ -242,7 +244,7 @@ export const usePayroll = () => {
       if (error) throw error;
       setPayrollRecords((data || []).map((record) => ({
         id: record.id,
-        employee: record.employees as any,
+        employee: Array.isArray(record.employees) ? record.employees[0] : record.employees,
         basic_salary: record.basic_salary,
         gross_salary: record.gross_salary,
         total_allowances: record.total_allowances,
@@ -369,7 +371,7 @@ export const usePayroll = () => {
         return;
       }
 
-      const { data, error } = await (supabase as any).rpc('process_payroll_period', {
+      const { data, error } = await supabase.rpc('process_payroll_period', {
         target_period_id: periodId,
       });
       if (error) throw error;
@@ -379,9 +381,12 @@ export const usePayroll = () => {
         fetchPayrollRecords(periodId),
         calculatePayrollSummary(),
       ]);
+      const employeeCount = typeof data === 'object' && data !== null && !Array.isArray(data) && typeof data.employees === 'number'
+        ? data.employees
+        : 0;
       toast({
         title: 'Payroll processed',
-        description: `${data?.employees ?? 0} employee payroll record(s) completed successfully.`,
+        description: `${employeeCount} employee payroll record(s) completed successfully.`,
       });
     } catch (error) {
       console.error('Error processing payroll:', error);
@@ -439,7 +444,7 @@ export const usePayroll = () => {
     try {
       if (demo) {
         const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
-        const employees = readDemoData<any[]>('employees', []);
+        const employees = readDemoData<DemoPayrollEmployee[]>('employees', []);
         const employee = employees.find((item) => String(item.id) === String(input.employee_id) || String(item.employeeId) === String(input.employee_id));
         const [firstName, ...lastParts] = String(employee?.name || 'Demo Employee').split(/\s+/);
         const created: SalaryProfile = {
