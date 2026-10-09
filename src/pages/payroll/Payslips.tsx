@@ -144,7 +144,7 @@ const Payslips = () => {
       });
 
       fetchPayslips();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading payslip:', error);
       toast({
         title: "Error",
@@ -168,7 +168,7 @@ const Payslips = () => {
       });
 
       fetchPayslips();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error emailing payslip:', error);
       toast({
         title: "Error",
