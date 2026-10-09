@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -23,6 +23,37 @@ interface Timesheet {
   comments?: string;
 }
 
+const seedTimesheets: Timesheet[] = [
+  {
+    id: "1",
+    period: "Weekly",
+    startDate: "2024-01-15",
+    endDate: "2024-01-21",
+    status: "approved",
+    submittedTo: "Manager",
+    totalHours: 40,
+  },
+  {
+    id: "2",
+    period: "Weekly",
+    startDate: "2024-01-22",
+    endDate: "2024-01-28",
+    status: "submitted",
+    submittedTo: "HR",
+    totalHours: 38.5,
+  },
+  {
+    id: "3",
+    period: "Daily",
+    startDate: "2024-01-29",
+    endDate: "2024-01-29",
+    status: "rejected",
+    submittedTo: "Team Lead",
+    totalHours: 6,
+    comments: "Missing project details for afternoon tasks"
+  }
+];
+
 const TimesheetCreator = () => {
   const { toast } = useToast();
   const [timesheetType, setTimesheetType] = useState<string>("weekly");
@@ -31,42 +62,13 @@ const TimesheetCreator = () => {
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false);
   const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
   
-  const seedTimesheets: Timesheet[] = [
-    {
-      id: "1",
-      period: "Weekly",
-      startDate: "2024-01-15",
-      endDate: "2024-01-21",
-      status: "approved",
-      submittedTo: "Manager",
-      totalHours: 40,
-    },
-    {
-      id: "2",
-      period: "Weekly",
-      startDate: "2024-01-22",
-      endDate: "2024-01-28",
-      status: "submitted",
-      submittedTo: "HR",
-      totalHours: 38.5,
-    },
-    {
-      id: "3",
-      period: "Daily",
-      startDate: "2024-01-29",
-      endDate: "2024-01-29",
-      status: "rejected",
-      submittedTo: "Team Lead",
-      totalHours: 6,
-      comments: "Missing project details for afternoon tasks"
-    }
-  ];
+
 
   const [timesheets, setTimesheets] = useState<Timesheet[]>(() =>
     isDemoSession() ? readDemoData<Timesheet[]>('timesheets', seedTimesheets) : []
   );
 
-  const refreshTimesheets = async () => {
+  const refreshTimesheets = useCallback(async () => {
     if (isDemoSession()) {
       setTimesheets(readDemoData<Timesheet[]>('timesheets', seedTimesheets));
       return;
@@ -81,11 +83,11 @@ const TimesheetCreator = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshTimesheets();
-  }, []);
+  }, [refreshTimesheets]);
 
   const persistTimesheets = (next: Timesheet[]) => {
     setTimesheets(next);
