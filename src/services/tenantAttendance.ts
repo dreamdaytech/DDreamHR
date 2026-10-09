@@ -122,6 +122,28 @@ export const listAttendanceRecords = async (
   return (data || []).map((row) => mapAttendance(row, resolvedName));
 };
 
+export const listTenantAttendanceRecords = async (
+  startDate: Date,
+  endDate: Date,
+): Promise<AttendanceRecord[]> => {
+  const context = await getTenantContext();
+  if (!context?.businessId) return [];
+
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('*, employees!inner(first_name,last_name)')
+    .eq('business_id', context.businessId)
+    .gte('work_date', format(startDate, 'yyyy-MM-dd'))
+    .lte('work_date', format(endDate, 'yyyy-MM-dd'))
+    .order('work_date', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((row) => mapAttendance(
+    row,
+    `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`.trim() || 'Employee',
+  ));
+};
+
 export const fetchTodayAttendance = async (employeeName?: string) => {
   const today = new Date();
   const rows = await listAttendanceRecords(today, today, undefined, employeeName);
