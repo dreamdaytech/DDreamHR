@@ -265,6 +265,17 @@ export const createRegularizationRequest = async (
 
   const requestedDate = request.date;
   const requestedTime = request.requestedTime;
+
+  if (request.requestType === 'Break') {
+    throw new Error('Break regularization is not supported yet because the request form does not capture a break interval.');
+  }
+  if ((request.requestType === 'Check-In' || request.requestType === 'Check-Out') && !requestedTime) {
+    throw new Error('A requested time is required for Check-In and Check-Out regularization.');
+  }
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDate) || Number.isNaN(Date.parse(`${requestedDate}T00:00:00Z`))) {
+    throw new Error('A valid attendance date is required.');
+  }
+
   const combine = requestedTime ? `${requestedDate}T${requestedTime}:00` : null;
 
   const { data, error } = await supabase
