@@ -3606,7 +3606,20 @@ export type Database = {
           users: number
         }[]
       }
-      get_my_tenant_context: { Args: never; Returns: Json }
+      get_my_tenant_context: {
+        Args: never
+        Returns: {
+          business_id: string | null
+          business_name: string | null
+          employee_id: string | null
+          employee_number: string | null
+          employment_condition: string | null
+          is_super_admin: boolean
+          lifecycle_state: string | null
+          role: string
+          user_id: string
+        } | null
+      }
       get_recent_super_admin_activities: {
         Args: never
         Returns: {
