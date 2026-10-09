@@ -167,7 +167,7 @@ export const usePayroll = () => {
   const { toast } = useToast();
   const demo = isDemoSession();
 
-  const fetchPayrollPeriods = async () => {
+  const fetchPayrollPeriods = useCallback(async () => {
     if (demo) {
       setPayrollPeriods(readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods));
       return;
@@ -186,9 +186,9 @@ export const usePayroll = () => {
       console.error('Error fetching payroll periods:', error);
       toast({ title: 'Error', description: 'Failed to fetch payroll periods', variant: 'destructive' });
     }
-  };
+  }, [demo, toast]);
 
-  const fetchSalaryProfiles = async () => {
+  const fetchSalaryProfiles = useCallback(async () => {
     if (demo) {
       setSalaryProfiles(readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles));
       return;
@@ -223,7 +223,7 @@ export const usePayroll = () => {
       console.error('Error fetching salary profiles:', error);
       toast({ title: 'Error', description: 'Failed to fetch salary profiles', variant: 'destructive' });
     }
-  };
+  }, [demo, toast]);
 
   const fetchPayrollRecords = async (periodId: string) => {
     if (demo) {
@@ -263,7 +263,7 @@ export const usePayroll = () => {
     }
   };
 
-  const calculatePayrollSummary = async () => {
+  const calculatePayrollSummary = useCallback(async () => {
     if (demo) {
       const profiles = readDemoData<SalaryProfile[]>('salary-profiles', seedProfiles);
       const periods = readDemoData<PayrollPeriod[]>('payroll-periods', seedPeriods);
@@ -311,7 +311,7 @@ export const usePayroll = () => {
     } catch (error) {
       console.error('Error calculating payroll summary:', error);
     }
-  };
+  }, [demo]);
 
   const createPayrollPeriod = async (periodData: Omit<PayrollPeriod, 'id'>) => {
     setLoading(true);
@@ -508,7 +508,7 @@ export const usePayroll = () => {
     fetchPayrollPeriods();
     fetchSalaryProfiles();
     calculatePayrollSummary();
-  }, []);
+  }, [fetchPayrollPeriods, fetchSalaryProfiles, calculatePayrollSummary]);
 
   return {
     payrollPeriods,
