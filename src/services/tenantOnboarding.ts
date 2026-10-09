@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getTenantContext } from '@/hooks/useTenantContext';
+import type { Json } from '@/integrations/supabase/types';
 
 export type OnboardingTask = {
   id: string;
@@ -51,7 +52,7 @@ export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
     ? onboarding.onboarding_checklists[0]
     : onboarding.onboarding_checklists;
   const rawTasks = Array.isArray(checklist?.checklist_items)
-    ? checklist.checklist_items.filter((task): task is Record<string, unknown> =>
+    ? checklist.checklist_items.filter((task): task is { [key: string]: Json } =>
         typeof task === 'object' && task !== null && !Array.isArray(task))
     : [];
 
