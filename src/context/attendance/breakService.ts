@@ -1,13 +1,14 @@
 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { BreakRecord } from '@/types/attendance';
+import { BreakRecord, AttendanceRecord } from '@/types/attendance';
+import type { User } from '@/context/AuthContext';
 import { isDemoSession, writeDemoData } from '@/lib/demoStore';
 import { createAttendanceBreak, finishAttendanceBreak } from '@/services/tenantAttendance';
 
 export function useBreakService(
-  user: any,
-  todayAttendance: any,
+  user: User | null,
+  todayAttendance: AttendanceRecord | null,
   isCheckedIn: boolean,
   isOnBreak: boolean,
   currentBreak: BreakRecord | null,
