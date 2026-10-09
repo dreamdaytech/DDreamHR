@@ -78,7 +78,7 @@ export const LeaveApplication = () => {
           afterLeaveBalance: Math.max(0, (selectedType?.balance ?? 15) - calculateLeaveDays(formData.startDate, formData.endDate, formData.halfDay)),
           timeline: [{ date: new Date().toISOString().split('T')[0], action: 'Request Submitted', by: user?.name || 'You' }],
         };
-        const existing = readDemoData<any[]>('leave-requests', []);
+        const existing = readDemoData<unknown[]>('leave-requests', []);
         writeDemoData('leave-requests', [request, ...existing]);
       } else {
         await submitLeaveRequest({
