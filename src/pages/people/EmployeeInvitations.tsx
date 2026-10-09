@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Mail, RefreshCw, ShieldX } from 'lucide-react';
 import {
   listEmployeeInvitations,
@@ -20,7 +20,7 @@ const EmployeeInvitations = () => {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       setInvitations(await listEmployeeInvitations());
@@ -33,11 +33,11 @@ const EmployeeInvitations = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
