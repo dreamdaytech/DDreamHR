@@ -195,7 +195,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user, fetchAttendanceByDate]);
 
   const value = {
     attendanceRecords,
