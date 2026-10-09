@@ -100,7 +100,7 @@ export const listEmployeeInvitations = async () => {
 
   if (error) throw error;
 
-  return (data || []).map((row: any) => {
+  return (data || []).map((row) => {
     const employee = Array.isArray(row.employees) ? row.employees[0] : row.employees;
     return {
       id: row.id as string,
