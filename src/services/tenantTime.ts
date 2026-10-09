@@ -263,6 +263,10 @@ export const createTenantTimesheet = async (
 
   if (error) throw error;
 
+  const approverProfile = approver
+    ? Array.isArray(approver.user_profiles) ? approver.user_profiles[0] : approver.user_profiles
+    : null;
+
   await supabase
     .from('time_logs')
     .update({ timesheet_id: data.id })
@@ -279,7 +283,7 @@ export const createTenantTimesheet = async (
     endDate: data.period_end,
     status: data.status,
     submittedTo: approver
-      ? `${(approver as any).user_profiles?.first_name || ''} ${(approver as any).user_profiles?.last_name || ''}`.trim() || submissionTarget
+      ? `${approverProfile?.first_name || ''} ${approverProfile?.last_name || ''}`.trim() || submissionTarget
       : submissionTarget,
     totalHours: Number(data.total_hours || 0),
     comments: data.comments || undefined,
