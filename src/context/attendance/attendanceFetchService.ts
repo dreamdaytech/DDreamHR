@@ -3,9 +3,10 @@ import { format } from 'date-fns';
 import { AttendanceRecord, AttendanceStatus } from '@/types/attendance';
 import { isDemoSession, readDemoData } from '@/lib/demoStore';
 import { listAttendanceRecords } from '@/services/tenantAttendance';
+import type { User } from '@/context/AuthContext';
 
 export function useAttendanceFetchService(
-  user: any,
+  user: User | null,
   attendanceRecords: AttendanceRecord[],
   setAttendanceRecords: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>,
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>,
