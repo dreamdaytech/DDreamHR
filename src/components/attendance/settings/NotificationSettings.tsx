@@ -44,7 +44,7 @@ export const NotificationSettings: React.FC = () => {
     });
   };
 
-  const updateSetting = (field: keyof NotificationSettings, value: any) => {
+  const updateSetting = <K extends keyof NotificationSettings>(field: K, value: NotificationSettings[K]) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
