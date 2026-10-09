@@ -117,7 +117,7 @@ export const LeaveTypeManager: React.FC<LeaveTypeManagerProps> = ({
   const toggleActive = (leaveType: LeaveType) => {
     const updatedTypes = leaveTypes.map(type => 
       type.value === leaveType.value 
-        ? { ...type, active: !(type as any).active }
+        ? { ...type, active: !type.active }
         : type
     );
     onUpdate(updatedTypes);
