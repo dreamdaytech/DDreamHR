@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,7 @@ const Payslips = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const fetchPayslips = async () => {
+  const fetchPayslips = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('payslips')
@@ -124,11 +124,11 @@ const Payslips = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchPayslips();
-  }, []);
+  }, [fetchPayslips]);
 
   const handleDownload = async (payslipId: string) => {
     try {
