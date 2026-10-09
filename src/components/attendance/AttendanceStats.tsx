@@ -97,10 +97,11 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'On Time':
+      case 'Present':
+      case 'Remote':
         return 'text-green-600';
-      case 'Early':
-        return 'text-blue-600';
+      case 'Absent':
+        return 'text-red-600';
       case 'Late':
         return 'text-amber-600';
       default:
@@ -110,6 +111,11 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {(isLoading || loadError) && (
+        <div className="md:col-span-3 text-sm text-muted-foreground" role={loadError ? 'alert' : undefined}>
+          {loadError || 'Loading attendance statistics…'}
+        </div>
+      )}
       {/* Weekly Hours Chart */}
       <Card className="md:col-span-2">
         <CardHeader>
@@ -138,13 +144,7 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
                             {payload[0].payload.late > 0 && (
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-amber-500 rounded-full" />
-                                <span className="text-xs">Late by: {payload[0].payload.late} min</span>
-                              </div>
-                            )}
-                            {payload[0].payload.early > 0 && (
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                                <span className="text-xs">Early by: {payload[0].payload.early} min</span>
+                                <span className="text-xs">Status: {payload[0].payload.status}</span>
                               </div>
                             )}
                           </div>
@@ -158,7 +158,7 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
                   {weeklyData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={entry.late > 0 ? '#f97316' : entry.early > 0 ? '#0ea5e9' : '#8b5cf6'} 
+                      fill={entry.late > 0 ? '#f97316' : '#8b5cf6'} 
                     />
                   ))}
                 </Bar>
@@ -174,10 +174,6 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
               <div className="h-2 w-2 rounded-full bg-amber-500 mr-1"></div>
               <span className="text-xs">Late Arrival</span>
             </div>
-            <div className="flex items-center">
-              <div className="h-2 w-2 rounded-full bg-blue-500 mr-1"></div>
-              <span className="text-xs">Early Arrival</span>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -192,7 +188,7 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">Weekly Average</p>
-                <p className="text-2xl font-bold">8.4 hrs</p>
+                <p className="text-2xl font-bold">{weeklyAverage === null ? '—' : `${weeklyAverage.toFixed(1)} hrs`}</p>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
                 <Clock className="h-5 w-5 text-primary" />
@@ -204,8 +200,8 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
             <div className="bg-slate-50 p-3 rounded-lg border">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">Attendance Rate</p>
-                  <p className="text-2xl font-bold">92%</p>
+                  <p className="text-sm font-medium text-slate-500">Present Records</p>
+                  <p className="text-2xl font-bold">{percentage(presentCount, organizationRecords.length)}%</p>
                 </div>
                 <div className="p-2 bg-green-100 rounded-full">
                   <Users className="h-5 w-5 text-green-600" />
@@ -216,8 +212,8 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
             <div className="bg-slate-50 p-3 rounded-lg border">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">On Time %</p>
-                  <p className="text-2xl font-bold">80%</p>
+                  <p className="text-sm font-medium text-slate-500">Present Records</p>
+                  <p className="text-2xl font-bold">{percentage(weeklyRecords.filter((record) => record.status === 'Present').length, weeklyRecords.length)}%</p>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-full">
                   <Calendar className="h-5 w-5 text-blue-600" />
@@ -231,7 +227,7 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Remote Work</p>
-                  <p className="text-2xl font-bold">7%</p>
+                  <p className="text-2xl font-bold">{percentage(remoteCount, organizationRecords.length)}%</p>
                 </div>
                 <div className="p-2 bg-indigo-100 rounded-full">
                   <MapPin className="h-5 w-5 text-indigo-600" />
@@ -243,7 +239,7 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Monthly Hours</p>
-                  <p className="text-2xl font-bold">168 hrs</p>
+                  <p className="text-2xl font-bold">{monthlyHours.toFixed(1)} hrs</p>
                 </div>
                 <div className="p-2 bg-amber-100 rounded-full">
                   <Calendar className="h-5 w-5 text-amber-600" />
@@ -261,15 +257,15 @@ export const AttendanceStats = ({ userRole }: AttendanceStatsProps) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {attendanceTimeSummary.map((item, i) => (
-              <div key={i} className="flex justify-between items-center bg-slate-50 p-2 rounded border">
+            {attendanceTimeSummary.length ? attendanceTimeSummary.map((item) => (
+              <div key={item.day} className="flex justify-between items-center bg-slate-50 p-2 rounded border">
                 <span className="font-medium">{item.day}</span>
                 <div className="text-right">
                   <div className="text-sm font-medium">{item.time}</div>
                   <div className={`text-xs ${getStatusColor(item.status)}`}>{item.status}</div>
                 </div>
               </div>
-            ))}
+            )) : <p className="py-4 text-sm text-muted-foreground">No check-ins recorded this week.</p>}
           </div>
         </CardContent>
       </Card>
