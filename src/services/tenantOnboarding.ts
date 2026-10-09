@@ -47,10 +47,13 @@ export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
   if (onboardingError) throw onboardingError;
   if (!onboarding) return null;
 
-  const checklist = Array.isArray((onboarding as any).onboarding_checklists)
-    ? (onboarding as any).onboarding_checklists[0]
-    : (onboarding as any).onboarding_checklists;
-  const rawTasks = Array.isArray(checklist?.checklist_items) ? checklist.checklist_items : [];
+  const checklist = Array.isArray(onboarding.onboarding_checklists)
+    ? onboarding.onboarding_checklists[0]
+    : onboarding.onboarding_checklists;
+  const rawTasks = Array.isArray(checklist?.checklist_items)
+    ? checklist.checklist_items.filter((task): task is Record<string, unknown> =>
+        typeof task === 'object' && task !== null && !Array.isArray(task))
+    : [];
 
   return {
     id: onboarding.id,
@@ -61,7 +64,7 @@ export const loadMyOnboarding = async (): Promise<MyOnboarding | null> => {
     department: employee.department || 'General',
     startDate: employee.start_date || employee.hire_date || '',
     templateName: checklist?.template_name || 'Onboarding',
-    tasks: rawTasks.map((task: any) => ({
+    tasks: rawTasks.map((task) => ({
       id: String(task.id),
       title: String(task.title || task.id),
       required: Boolean(task.required),
@@ -115,7 +118,7 @@ export const listTenantOnboardingAssignments = async () => {
 
   if (error) throw error;
 
-  return (data || []).map((row: any) => {
+  return (data || []).map((row) => {
     const employee = Array.isArray(row.employees) ? row.employees[0] : row.employees;
     const checklist = Array.isArray(row.onboarding_checklists) ? row.onboarding_checklists[0] : row.onboarding_checklists;
     return {
