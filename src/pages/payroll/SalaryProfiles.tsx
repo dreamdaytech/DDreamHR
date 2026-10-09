@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { usePayroll } from '@/hooks/payroll/usePayroll';
+import { usePayroll, type SalaryProfile } from '@/hooks/payroll/usePayroll';
 import { listTenantEmployees } from '@/services/tenantPeople';
 import { isDemoSession, readDemoData } from '@/lib/demoStore';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,11 @@ import {
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+type SalaryEmployeeOption = {
+  id: string | number; name?: string; first_name?: string; last_name?: string; email?: string;
+  department?: string; position?: string; employeeId?: string; employee_id?: string;
+};
+
 const SalaryProfiles = () => {
   const { salaryProfiles, loading, createSalaryProfile, updateSalaryProfile } = usePayroll();
   const isMobile = useIsMobile();
@@ -32,10 +37,10 @@ const SalaryProfiles = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [editingProfile, setEditingProfile] = useState<any>(null);
+  const [editingProfile, setEditingProfile] = useState<SalaryProfile | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<SalaryEmployeeOption[]>([]);
   const [newProfile, setNewProfile] = useState({
     employee_id: '',
     basic_salary: '',
@@ -47,7 +52,7 @@ const SalaryProfiles = () => {
     const loadEmployees = async () => {
       try {
         if (isDemoSession()) {
-          setEmployees(readDemoData<any[]>('employees', []));
+          setEmployees(readDemoData<SalaryEmployeeOption[]>('employees', []));
         } else {
           setEmployees(await listTenantEmployees());
         }
@@ -71,7 +76,7 @@ const SalaryProfiles = () => {
     return matchesSearch && matchesDepartment;
   });
 
-  const handleEditProfile = (profile: any) => {
+  const handleEditProfile = (profile: SalaryProfile) => {
     setEditingProfile({ ...profile });
     setIsDialogOpen(true);
   };
@@ -449,7 +454,7 @@ const SalaryProfiles = () => {
               <div>
                 <h4 className="font-medium mb-4">Allowances</h4>
                 <div className="space-y-3">
-                  {editingProfile.allowances.map((allowance: any, index: number) => (
+                  {editingProfile.allowances.map((allowance, index: number) => (
                     <div key={allowance.id} className="grid grid-cols-4 gap-3 items-center">
                       <Input placeholder="Allowance name" value={allowance.name} readOnly />
                       <Select value={allowance.allowance_type}>
@@ -483,7 +488,7 @@ const SalaryProfiles = () => {
               <div>
                 <h4 className="font-medium mb-4">Deductions</h4>
                 <div className="space-y-3">
-                  {editingProfile.deductions.map((deduction: any, index: number) => (
+                  {editingProfile.deductions.map((deduction, index: number) => (
                     <div key={deduction.id} className="grid grid-cols-4 gap-3 items-center">
                       <Input placeholder="Deduction name" value={deduction.name} readOnly />
                       <Select value={deduction.deduction_type}>
