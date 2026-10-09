@@ -2,10 +2,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getUserIdAsString } from './utils';
 import type { SystemSettings } from './types';
+import type { Json } from '@/integrations/supabase/types';
 import { getTenantContext } from '@/hooks/useTenantContext';
 
 export class SystemSettingsService {
-  private handleError: (error: any, operation: string) => any;
+  private handleError: (error: unknown, operation: string) => unknown;
 
   constructor(handleError: (error: any, operation: string) => any) {
     this.handleError = handleError;
@@ -44,7 +45,7 @@ export class SystemSettingsService {
 
   async saveSystemSetting(
     settingKey: string,
-    settingValue: Record<string, any>,
+    settingValue: Record<string, Json>,
     category: string = 'general',
     description?: string,
     userId?: string,
