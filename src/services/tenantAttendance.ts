@@ -168,10 +168,17 @@ export const updateAttendanceCheckOut = async (attendanceId: string, input: {
   device?: string | null;
   notes?: string | null;
 }) => {
+  const context = await getTenantContext();
+  if (!context?.businessId || !context.employeeId) {
+    throw new Error('Your account is not linked to an employee record.');
+  }
+
   const { data, error } = await supabase
     .from('attendance_records')
     .update({
       check_out: new Date().toISOString(),
+      // The database guard recalculates total_hours from timestamps and unpaid
+      // breaks; this value is retained only for compatibility with callers.
       total_hours: input.totalHours,
       location_check_out: input.locationName || null,
       ip_address_check_out: input.ipAddress || null,
@@ -179,6 +186,8 @@ export const updateAttendanceCheckOut = async (attendanceId: string, input: {
       check_out_notes: input.notes || null,
     })
     .eq('id', attendanceId)
+    .eq('business_id', context.businessId)
+    .eq('employee_id', context.employeeId)
     .select()
     .single();
 
