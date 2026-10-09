@@ -152,7 +152,7 @@ export const OvertimeReport: React.FC<OvertimeReportProps> = ({
     };
 
     fetchData();
-  }, [startDate, endDate, department, location, employee]);
+  }, [startDate, endDate, department, location, employee, userRole]);
 
   // Check if user has proper access
   if (userRole !== 'admin' && userRole !== 'hr' && userRole !== 'manager') {
