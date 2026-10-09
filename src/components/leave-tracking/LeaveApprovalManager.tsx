@@ -86,7 +86,7 @@ export const LeaveApprovalManager = () => {
 
   const refreshPendingRequests = async () => {
     if (isDemoSession()) {
-      const stored = readDemoData<any[]>('leave-requests', []).filter((request) => request.status === 'pending');
+      const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []).filter((request) => request.status === 'pending');
       setPendingRequests(stored.length ? stored : seedPendingRequests.map((request) => ({ ...request, status: 'pending' })));
       return;
     }
@@ -113,7 +113,7 @@ export const LeaveApprovalManager = () => {
     try {
       if (isDemoSession()) {
         const nextStatus = action === 'approve' ? 'approved' : 'rejected';
-        const stored = readDemoData<any[]>('leave-requests', []);
+        const stored = readDemoData<LeaveApprovalRequest[]>('leave-requests', []);
         const source = stored.length ? stored : pendingRequests;
         const updated = source.map((item) =>
           String(item.id) === String(requestId)
