@@ -13,6 +13,13 @@ import { CalendarDays, Play, Save, Users, DollarSign, AlertTriangle } from 'luci
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+type PayrollPreviewRow = {
+  employee_id: string; employee_name: string; department: string; position: string;
+  basic_salary: number; total_allowances: number; total_deductions: number;
+  gross_salary: number; net_salary: number; working_days: number; actual_days_worked: number;
+  leave_days: number; overtime_hours: number; overtime_amount: number;
+};
+
 const RunPayroll = () => {
   const { createPayrollPeriod, processPayroll, loading, salaryProfiles } = usePayroll();
   const { toast } = useToast();
@@ -30,10 +37,10 @@ const RunPayroll = () => {
   });
 
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewData, setPreviewData] = useState<PayrollPreviewRow[]>([]);
   const [step, setStep] = useState(1); // 1: Setup, 2: Preview, 3: Process
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = <K extends keyof typeof periodData>(field: K, value: (typeof periodData)[K]) => {
     setPeriodData(prev => ({
       ...prev,
       [field]: value
