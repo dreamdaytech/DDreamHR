@@ -21,6 +21,14 @@ interface OvertimeReportProps {
   userRole?: string;
 }
 
+interface OvertimeAggregate {
+  employeeId: string;
+  employeeName: string;
+  totalOvertimeHours: number;
+  approvedHours: number;
+  pendingHours: number;
+}
+
 interface OvertimeData {
   employeeId: string;
   employeeName: string;
@@ -40,7 +48,7 @@ export const OvertimeReport: React.FC<OvertimeReportProps> = ({
   userRole
 }) => {
   const [overtimeData, setOvertimeData] = useState<OvertimeData[]>([]);
-  const [aggregatedData, setAggregatedData] = useState<any[]>([]);
+  const [aggregatedData, setAggregatedData] = useState<OvertimeAggregate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
