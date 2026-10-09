@@ -27,56 +27,58 @@ type LeaveApprovalRequest = {
   timeline?: LeaveTimelineItem[]; approvedBy?: string;
 };
 
+const seedPendingRequests: LeaveApprovalRequest[] = [
+  {
+    id: 1,
+    employee: 'Sarah Johnson',
+    employeeId: 'EMP001',
+    type: 'Annual Leave',
+    startDate: '2024-12-28',
+    endDate: '2024-12-30',
+    days: 3,
+    reason: 'Family vacation during year-end holidays',
+    appliedDate: '2024-12-10',
+    currentBalance: 12,
+    afterLeaveBalance: 9,
+    documents: ['medical-certificate.pdf']
+  },
+  {
+    id: 2,
+    employee: 'Mike Chen',
+    employeeId: 'EMP002',
+    type: 'Sick Leave',
+    startDate: '2024-12-20',
+    endDate: '2024-12-21',
+    days: 2,
+    reason: 'Doctor advised rest due to flu symptoms',
+    appliedDate: '2024-12-19',
+    currentBalance: 8,
+    afterLeaveBalance: 6,
+    documents: []
+  },
+  {
+    id: 3,
+    employee: 'Emma Davis',
+    employeeId: 'EMP003',
+    type: 'Personal Leave',
+    startDate: '2024-12-22',
+    endDate: '2024-12-22',
+    days: 1,
+    reason: 'Important personal appointment that cannot be rescheduled',
+    appliedDate: '2024-12-15',
+    currentBalance: 3,
+    afterLeaveBalance: 2,
+    documents: []
+  }
+];
+
 export const LeaveApprovalManager = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [selectedRequest, setSelectedRequest] = useState<LeaveApprovalRequest | null>(null);
   const [comments, setComments] = useState('');
 
-  const seedPendingRequests = [
-    {
-      id: 1,
-      employee: 'Sarah Johnson',
-      employeeId: 'EMP001',
-      type: 'Annual Leave',
-      startDate: '2024-12-28',
-      endDate: '2024-12-30',
-      days: 3,
-      reason: 'Family vacation during year-end holidays',
-      appliedDate: '2024-12-10',
-      currentBalance: 12,
-      afterLeaveBalance: 9,
-      documents: ['medical-certificate.pdf']
-    },
-    {
-      id: 2,
-      employee: 'Mike Chen',
-      employeeId: 'EMP002',
-      type: 'Sick Leave',
-      startDate: '2024-12-20',
-      endDate: '2024-12-21',
-      days: 2,
-      reason: 'Doctor advised rest due to flu symptoms',
-      appliedDate: '2024-12-19',
-      currentBalance: 8,
-      afterLeaveBalance: 6,
-      documents: []
-    },
-    {
-      id: 3,
-      employee: 'Emma Davis',
-      employeeId: 'EMP003',
-      type: 'Personal Leave',
-      startDate: '2024-12-22',
-      endDate: '2024-12-22',
-      days: 1,
-      reason: 'Important personal appointment that cannot be rescheduled',
-      appliedDate: '2024-12-15',
-      currentBalance: 3,
-      afterLeaveBalance: 2,
-      documents: []
-    }
-  ];
+
 
   const [pendingRequests, setPendingRequests] = useState<LeaveApprovalRequest[]>(() => {
     if (!isDemoSession()) return [];
