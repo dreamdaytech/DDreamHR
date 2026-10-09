@@ -41,7 +41,7 @@ export const LeaveHistory = () => {
 
   const isManagerOrAbove = user?.role && ['manager', 'hr', 'admin'].includes(user.role);
   const [realPersonalLeaveHistory, setRealPersonalLeaveHistory] = useState<LeaveHistoryItem[]>([]);
-  const [realTeamLeaveHistory, setRealTeamLeaveHistory] = useState<any[]>([]);
+  const [realTeamLeaveHistory, setRealTeamLeaveHistory] = useState<LeaveHistoryItem[]>([]);
 
   useEffect(() => {
     if (isDemoSession()) return;
