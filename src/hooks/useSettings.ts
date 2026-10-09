@@ -8,6 +8,7 @@ import { SystemSettingsService } from './settings/systemSettingsService';
 import { setupRealtimeSubscriptions } from './settings/realtimeSubscriptions';
 import type { UserSettings, SystemSettings, UserProfile, UserSettingsData } from './settings/types';
 import { isDemoSession, readDemoData, writeDemoData } from '@/lib/demoStore';
+import type { Json } from '@/integrations/supabase/types';
 
 export const useSettings = () => {
   const { user } = useAuth();
@@ -77,7 +78,7 @@ export const useSettings = () => {
   // Save functions with enhanced error handling and toast notifications
   const saveUserSettings = async (
     settingsType: 'profile' | 'preferences' | 'notifications',
-    settingsData: Record<string, any>,
+    settingsData: Record<string, Json>,
     userId?: string
   ) => {
     setIsSaving(true);
@@ -88,7 +89,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any[]>(`user-settings:${targetUserId}`, []);
+        const current = readDemoData<UserSettings[]>(`user-settings:${targetUserId}`, []);
         const existingIndex = current.findIndex((item) => item.settings_type === settingsType);
         const record = {
           id: existingIndex >= 0 ? current[existingIndex].id : `demo-user-setting-${Date.now()}`,
@@ -142,7 +143,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any[]>('system-settings', []);
+        const current = readDemoData<SystemSettings[]>('system-settings', []);
         const existingIndex = current.findIndex((item) => item.setting_key === settingKey);
         const record = {
           id: existingIndex >= 0 ? current[existingIndex].id : `demo-system-setting-${Date.now()}`,
@@ -200,7 +201,7 @@ export const useSettings = () => {
       }
 
       if (demo) {
-        const current = readDemoData<any>(`user-profile:${targetUserId}`, {});
+        const current = readDemoData<Partial<UserProfile>>(`user-profile:${targetUserId}`, {});
         const next = { ...current, ...profileData, user_id: String(targetUserId), updated_at: new Date().toISOString() };
         writeDemoData(`user-profile:${targetUserId}`, next);
         setUserProfile(next as UserProfile);
