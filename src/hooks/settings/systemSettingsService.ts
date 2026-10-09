@@ -8,7 +8,7 @@ import { getTenantContext } from '@/hooks/useTenantContext';
 export class SystemSettingsService {
   private handleError: (error: unknown, operation: string) => unknown;
 
-  constructor(handleError: (error: any, operation: string) => any) {
+  constructor(handleError: (error: unknown, operation: string) => unknown) {
     this.handleError = handleError;
   }
 
@@ -153,7 +153,7 @@ export class SystemSettingsService {
     }
   }
 
-  async saveSystemSettings(settings: Record<string, any>, userId?: string, hasAdminAccess = false) {
+  async saveSystemSettings(settings: Record<string, Json>, userId?: string, hasAdminAccess = false) {
     try {
       console.log('Saving multiple system settings:', settings);
       
