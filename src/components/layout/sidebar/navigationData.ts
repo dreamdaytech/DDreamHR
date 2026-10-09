@@ -204,7 +204,7 @@ export const getNavigationItems = (userRole?: UserRole): NavigationItem[] => {
     }
   );
 
-  if (adminHrRoles.includes(userRole as any)) {
+  if (adminHrRoles.some((role) => role === userRole)) {
     items.push({
       name: 'Settings',
       icon: Settings,
