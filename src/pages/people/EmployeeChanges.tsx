@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,7 @@ const EmployeeChanges = () => {
     isDemoSession() ? readDemoData('employee-changes', seedChanges) : []
   );
 
-  const refreshChanges = async () => {
+  const refreshChanges = useCallback(async () => {
     if (isDemoSession()) {
       setChanges(readDemoData('employee-changes', seedChanges));
       return;
@@ -125,11 +125,11 @@ const EmployeeChanges = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void refreshChanges();
-  }, []);
+  }, [refreshChanges]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState({
     employee: '',
